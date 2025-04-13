@@ -8,6 +8,8 @@ Klipper-Backup is a script for manual or automated GitHub backups. It's Lightwei
 
 ## Installation
 
+## This is a custom installation for my "punisher_data" printer but will be adding more and set up a way for you to add your custom folder
+
 ## First open directory you wish to install klipper-backup in, if you used Kiauh to install multiple printers
 
 ## might want to install for each printer say printer1_data, printer2_data, or if you installed with custom names
