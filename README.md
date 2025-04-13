@@ -17,13 +17,13 @@ Klipper-Backup is a script for manual or automated GitHub backups. It's Lightwei
 ## Download
 
 ```shell
-git clone -b KIAUH_V1 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/klipper-backup
+git clone -b KIAUH_V1 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/punisher_data/klipper-backup
 ```
 
 ## Installation/Configuration
 
 ```shell
-~/klipper-backup/install.sh
+~/punisher_data/klipper-backup/install.sh
 ```
 
 ## RTFM
