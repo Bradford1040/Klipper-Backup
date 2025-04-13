@@ -268,10 +268,10 @@ show_help(){
 fix(){
     loading_wheel "${Y}●{NC} Delete config_backup folder" &
     loading_pid=$!
-    if [ ! -d "$HOME/$backup_folder" ]; then
+    if [ ! -d "$HOME/punisher_data/$backup_folder" ]; then
         echo -e "\r\033[K${R}config_backup folder does exist${NC}\n"
     else
-        rm -rf $HOME/$backup_folder
+        rm -rf $HOME/punisher_data/$backup_folder
         echo -e "\r\033[K${G}●${NC} Delete config_backup folder ${G}Done!${NC}\n"
     fi
     kill $loading_pid

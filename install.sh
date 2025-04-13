@@ -45,13 +45,13 @@ install_repo() {
     if ask_yn "Do you want to proceed with installation/(re)configuration?"; then
         tput cup $(($questionline - 1)) 0
         clearUp
-        cd "$HOME"
+        cd "$HOME/punisher_data"
         if [ ! -d "klipper-backup" ]; then
             loading_wheel "${Y}●${NC} Installing Klipper-Backup" &
             loading_pid=$!
             git clone -b KIAUH_V1 --single-branch https://github.com/Bradford1040/klipper-backup.git 2>/dev/null
-            chmod +x ./klipper-backup/script.sh
-            cp ./klipper-backup/.env.example ./klipper-backup/.env
+            chmod +x ./punisher_data/klipper-backup/script.sh
+            cp ./punisher_data/klipper-backup/.env.example ./punisher_data/klipper-backup/.env
             sleep .5
             kill $loading_pid
             echo -e "\r\033[K${G}●${NC} Installing Klipper-Backup ${G}Done!${NC}\n"
@@ -234,8 +234,8 @@ configure() {
 
 patch_klipper-backup_update_manager() {
     questionline=$(getcursor)
-    if [[ -d $HOME/moonraker ]] && systemctl is-active moonraker >/dev/null 2>&1; then
-        if ! grep -Eq "^\[update_manager klipper-backup\]\s*$" "$HOME/printer_data/config/moonraker.conf"; then
+    if [[ -d $HOME/punisher_data/moonraker ]] && systemctl is-active moonraker >/dev/null 2>&1; then
+        if ! grep -Eq "^\[update_manager klipper-backup\]\s*$" "$HOME/punisher_data/config/moonraker.conf"; then
             if ask_yn "Would you like to add Klipper-Backup to moonraker update manager?"; then
                 tput cup $(($questionline - 2)) 0
                 tput ed
@@ -243,12 +243,12 @@ patch_klipper-backup_update_manager() {
                 loading_wheel "${Y}●${NC} Adding Klipper-Backup to update manager" &
                 loading_pid=$!
                 ### add new line to conf if it doesn't end with one
-                if [[ $(tail -c1 "$HOME/printer_data/config/moonraker.conf" | wc -l) -eq 0 ]]; then
-                    echo "" >>"$HOME/printer_data/config/moonraker.conf"
+                if [[ $(tail -c1 "$HOME/punisher_data/config/moonraker.conf" | wc -l) -eq 0 ]]; then
+                    echo "" >>"$HOME/punisher_data/config/moonraker.conf"
                 fi
 
-                if /usr/bin/env bash -c "cat $parent_path/install-files/moonraker.conf >> $HOME/printer_data/config/moonraker.conf"; then
-                    sudo systemctl restart moonraker.service
+                if /usr/bin/env bash -c "cat $parent_path/install-files/moonraker.conf >> $HOME/punisher_data/config/moonraker.conf"; then
+                    sudo systemctl restart moonraker-punisher.service
                 fi
 
                 kill $loading_pid
@@ -429,7 +429,7 @@ install_backup_service() {
 install_cron() {
     questionline=$(getcursor)
     if [ -x "$(command -v cron)" ]; then
-        if ! (crontab -l 2>/dev/null | grep -q "$HOME/klipper-backup/script.sh"); then
+        if ! (crontab -l 2>/dev/null | grep -q "$HOME/punisher_data/klipper-backup/script.sh"); then
             if ask_yn "Would you like to install the cron task? (automatic backup every 4 hours)"; then
                 tput cup $(($questionline - 2)) 0
                 tput ed
@@ -438,7 +438,7 @@ install_cron() {
                 loading_pid=$!
                 (
                     crontab -l 2>/dev/null
-                    echo "0 */4 * * * $HOME/klipper-backup/script.sh -c \"Cron backup - \$(date +'\\%x - \\%X')\""
+                    echo "0 */4 * * * $HOME/punisher_data/klipper-backup/script.sh -c \"Cron backup - \$(date +'\\%x - \\%X')\""
                 ) | crontab -
                 sleep .5
                 kill $loading_pid

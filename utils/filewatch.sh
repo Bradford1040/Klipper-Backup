@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 
-source "$HOME/klipper-backup/.env"
+source "$HOME/punisher_data/klipper-backup/.env"
 watchlist=""
 for path in "${backupPaths[@]}"; do
     for file in $path; do
         if [ ! -h "$file" ]; then
             file_dir=$(dirname "$file")
             if [ "$file_dir" = "." ]; then
-                watchlist+=" $HOME/$file"
+                watchlist+=" $HOME/punisher_data/$file"
             else
-                watchlist+=" $HOME/$file_dir"
+                watchlist+=" $HOME/punisher_data/$file_dir"
             fi
         fi
     done
@@ -25,5 +25,5 @@ while read -r path event file; do
         file=$(basename "$path")
     fi
     echo "Event Type: $event, Watched Path: $path, File Name: $file"
-    file="$file" /usr/bin/env bash -c "/usr/bin/env bash  $HOME/klipper-backup/script.sh -c \"\$file modified - \$(date +'%x - %X')\"" > /dev/null 2>&1
+    file="$file" /usr/bin/env bash -c "/usr/bin/env bash  $HOME/punisher_data/klipper-backup/script.sh -c \"\$file modified - \$(date +'%x - %X')\"" > /dev/null 2>&1
 done

@@ -21,7 +21,7 @@ echo -e "\r\033[K${G}●${NC} Checking for installed dependencies ${G}Done!${NC}
 
 # Do not touch these variables, the .env file and the documentation exist for this purpose
 backup_folder="config_backup"
-backup_path="$HOME/$backup_folder"
+backup_path="$HOME/punisher_data/$backup_folder"
 allow_empty_commits=${allow_empty_commits:-true}
 use_filenames_as_commit_msg=${use_filenames_as_commit_msg:-false}
 git_protocol=${git_protocol:-"https"}
@@ -103,7 +103,7 @@ if [ "$debug_output" = true ]; then
     else
         echo "$line"
     fi
-    done < $HOME/klipper-backup/.env
+    done < $HOME/punisher_data/klipper-backup/.env
     end_debug_line
 
     # Debug output: Check git repo
@@ -202,7 +202,7 @@ fi
 cd "$HOME"
 # Iterate through backupPaths array and copy files to the backup folder while ignoring symbolic links
 for path in "${backupPaths[@]}"; do
-    fullPath="$HOME/$path"
+    fullPath="$HOME/punisher_data/$path"
     if [[ -d "$fullPath" && ! -f "$fullPath" ]]; then
         # Check if the directory path ends with only a '/'
         if [[ "$path" =~ /$ ]]; then
