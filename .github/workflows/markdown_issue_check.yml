@@ -13,8 +13,7 @@ jobs:
     name: Markdown issue 
 
     steps:
-    - name: Check if markdown code is used
-      id: check_markdown
+    - id: check_markdown
       run: |
         ISSUE_BODY="${{ github.event.issue.body }}"
 
@@ -28,7 +27,9 @@ jobs:
         fi
 
     - name: Comment on the issue if no Markdown code is detected
-      if: env.markdown_used == 'false'
+      if: ${{ steps.check_markdown.outputs.markdown_used == 'false' }}
+      env:
+        markdown_used: ${{ steps.check_markdown.outputs.markdown_used }}
       run: |
         ISSUE_NUMBER="${{ github.event.issue.number }}"
         REPO="${{ github.repository }}"
