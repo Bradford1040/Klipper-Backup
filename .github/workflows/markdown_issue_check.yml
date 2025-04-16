@@ -10,7 +10,7 @@ permissions:
 jobs:
   check_markdown:
     runs-on: ubuntu-latest
-    name: Markdown issue 
+    name: Markdown issue
 
     steps:
     - id: check_markdown
