@@ -117,7 +117,7 @@ configure() {
             ghtoken=$(ask_token "Enter your GitHub token")
             result=$(check_ghToken "$ghtoken") # Check Github Token using github API to ensure token is valid and connection can be established to github
             if [ "$result" != "" ]; then
-                sed -i "s/^github_token=.*/github_token=$ghtoken/" "$HOME/klipper-backup/.env"
+                sed -i "s/^github_token=.*/github_token=$ghtoken/" "$HOME/punisher_data/klipper-backup/.env"
                 ghtoken_username=$result
             else
                 tput cup $(($pos2 - 2)) 0
@@ -134,7 +134,7 @@ configure() {
             menu
             exitstatus=$?
             if [ $exitstatus = 0 ]; then
-                sed -i "s/^github_username=.*/github_username=$ghuser/" "$HOME/klipper-backup/.env"
+                sed -i "s/^github_username=.*/github_username=$ghuser/" "$HOME/punisher_data/klipper-backup/.env"
                 tput cup $pos2 0
                 tput ed
             else
@@ -150,7 +150,7 @@ configure() {
             menu
             exitstatus=$?
             if [ $exitstatus = 0 ]; then
-                sed -i "s/^github_repository=.*/github_repository=$ghrepo/" "$HOME/klipper-backup/.env"
+                sed -i "s/^github_repository=.*/github_repository=$ghrepo/" "$HOME/punisher_data/klipper-backup/.env"
                 tput cup $pos2 0
                 tput ed
             else
@@ -166,7 +166,7 @@ configure() {
             menu
             exitstatus=$?
             if [ $exitstatus = 0 ]; then
-                sed -i "s/^branch_name=.*/branch_name=\"$repobranch\"/" "$HOME/klipper-backup/.env"
+                sed -i "s/^branch_name=.*/branch_name=\"$repobranch\"/" "$HOME/punisher_data/klipper-backup/.env"
                 tput cup $pos2 0
                 tput ed
             else
@@ -182,7 +182,7 @@ configure() {
             menu
             exitstatus=$?
             if [ $exitstatus = 0 ]; then
-                sed -i "s/^commit_username=.*/commit_username=\"$commitname\"/" "$HOME/klipper-backup/.env"
+                sed -i "s/^commit_username=.*/commit_username=\"$commitname\"/" "$HOME/punisher_data/klipper-backup/.env"
                 tput cup $pos2 0
                 tput ed
             else
@@ -198,7 +198,7 @@ configure() {
             menu
             exitstatus=$?
             if [ $exitstatus = 0 ]; then
-                sed -i "s/^commit_email=.*/commit_email=\"$commitemail\"/" "$HOME/klipper-backup/.env"
+                sed -i "s/^commit_email=.*/commit_email=\"$commitemail\"/" "$HOME/punisher_data/klipper-backup/.env"
                 tput cup $pos2 0
                 tput ed
             else
