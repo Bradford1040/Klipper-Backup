@@ -21,7 +21,7 @@ echo -e "\r\033[K${G}●${NC} Checking for installed dependencies ${G}Done!${NC}
 
 # Do not touch these variables, the .env file and the documentation exist for this purpose
 backup_folder="config_backup"
-backup_path="$HOME/punisher_data/$backup_folder"
+backup_path="$HOME/$backup_folder"
 allow_empty_commits=${allow_empty_commits:-true}
 use_filenames_as_commit_msg=${use_filenames_as_commit_msg:-false}
 git_protocol=${git_protocol:-"https"}
@@ -202,7 +202,7 @@ fi
 cd "$HOME"
 # Iterate through backupPaths array and copy files to the backup folder while ignoring symbolic links
 for path in "${backupPaths[@]}"; do
-    fullPath="$HOME/punisher_data/$path"
+    fullPath="$HOME/$path"
     if [[ -d "$fullPath" && ! -f "$fullPath" ]]; then
         # Check if the directory path ends with only a '/'
         if [[ "$path" =~ /$ ]]; then
@@ -249,7 +249,7 @@ fi
 cd "$backup_path"
 # Create and add Readme to backup folder if it doesn't already exist
 if ! [ -f "README.md" ]; then
-    echo -e "# Klipper-Backup 💾 \nKlipper backup script for manual or automated GitHub backups \n\nThis backup is provided by [Klipper-Backup](https://github.com/Staubgeborener/klipper-backup)." >"$backup_path/README.md"
+    echo -e "# Klipper-Backup 💾 \nKlipper backup script for manual or automated GitHub backups \n\nThis custom backup is provided by [Klipper-Backup](https://github.com/Bradford1040/klipper-backup)." >"$backup_path/README.md"
 fi
 
 # Show in commit message which files have been changed

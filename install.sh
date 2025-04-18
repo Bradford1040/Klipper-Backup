@@ -67,7 +67,7 @@ install_repo() {
 }
 
 check_updates() {
-    cd ~/klipper-backup
+    cd ~/punisher_data/klipper-backup
     if [ "$(git rev-parse HEAD)" = "$(git ls-remote $(git rev-parse --abbrev-ref @{u} | sed 's/\// /g') | cut -f1)" ]; then
         echo -e "${G}●${NC} Klipper-Backup ${G}is up to date.${NC}\n"
     else
@@ -234,7 +234,7 @@ configure() {
 
 patch_klipper-backup_update_manager() {
     questionline=$(getcursor)
-    if [[ -d $HOME/punisher_data/moonraker ]] && systemctl is-active moonraker >/dev/null 2>&1; then
+    if [[ -d $HOME/moonraker ]] && systemctl is-active moonraker-punisher >/dev/null 2>&1; then
         if ! grep -Eq "^\[update_manager klipper-backup\]\s*$" "$HOME/punisher_data/config/moonraker.conf"; then
             if ask_yn "Would you like to add Klipper-Backup to moonraker update manager?"; then
                 tput cup $(($questionline - 2)) 0
