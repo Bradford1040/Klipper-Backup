@@ -20,7 +20,7 @@ source "$parent_path"/utils/utils.func
 
 
 loading_wheel "${Y}●${NC} Checking for installed dependencies" &
-# ... (the rest of your script as it was) ...
+
 
 unique_id=$(getUniqueid)
 
@@ -281,7 +281,7 @@ patch_klipper-backup_update_manager() {
 
 #!/usr/bin/env bash
 
-# Assume other parts of your script (utils.func sourcing, traps, etc.) are present
+
 
 # --- Helper function for compiling inotify-tools (extracted & improved) ---
 # This function attempts to compile and install inotify-tools from source.
@@ -360,7 +360,6 @@ install_filewatch_service() {
     local questionline=$(getcursor)
     # Clear potential leftover lines from previous operations if needed
     # tput cup $(($questionline - 2)) 0
-    # tput ed
     local pos1=$(getcursor) # Record cursor position
 
     local message
@@ -485,7 +484,7 @@ install_filewatch_service() {
     return 0 # Indicate success or skipped
 }
 
-# --- Placeholder for other functions needed by the script ---
+
 # You need to ensure these functions are defined or sourced from utils.func
 getcursor() { echo 10; } # Dummy
 service_exists() { return 1; } # Dummy: Assume service doesn't exist initially
@@ -495,8 +494,6 @@ wantsafter() { echo "network-online.target"; } # Dummy
 parent_path="." # Dummy
 SUDO_USER=${SUDO_USER:-$USER} # Ensure SUDO_USER is set
 
-# Example call (replace with your main script logic)
-# install_filewatch_service
 
 install_backup_service() {
     questionline=$(getcursor)
