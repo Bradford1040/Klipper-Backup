@@ -1,3 +1,4 @@
+# .github/workflows/markdown_issue_check.yml
 name: Check for Markdown code blocks in Issues
 
 on:
@@ -5,44 +6,71 @@ on:
     types: [opened]
 
 permissions:
-  issues: write
+  issues: write # Needed to post comments
 
 jobs:
   check_markdown:
     runs-on: ubuntu-latest
-    name: Markdown issue
+    name: Markdown issue check
 
     steps:
-    - id: check_markdown
+    - name: Check for Markdown code usage
+      id: check_markdown # Give the step an ID to reference its outputs
       run: |
         ISSUE_BODY="${{ github.event.issue.body }}"
 
-        # Check if the issue body contains Markdown inline code or code block (`` ` ``)
-        if echo "$ISSUE_BODY" | grep -q "\`"; then
+        # Check if the issue body contains Markdown inline code or code block (`)
+        # Use grep -q for quiet mode (no output, just exit status)
+        if echo "$ISSUE_BODY" | grep -q "`"; then
           echo "Markdown code detected."
-          echo "markdown_used=true" >> $GITHUB_ENV
+          # Set step output using the recommended GITHUB_OUTPUT file
+          echo "markdown_used=true" >> $GITHUB_OUTPUT
         else
           echo "No Markdown code detected."
-          echo "markdown_used=false" >> $GITHUB_ENV
+          # Set step output using the recommended GITHUB_OUTPUT file
+          echo "markdown_used=false" >> $GITHUB_OUTPUT
         fi
 
     - name: Comment on the issue if no Markdown code is detected
-      if: ${{ steps.check_markdown.outputs.markdown_used == 'false' }}
+      # Correctly reference the output from the 'check_markdown' step
+      if: steps.check_markdown.outputs.markdown_used == 'false'
       env:
-        markdown_used: ${{ steps.check_markdown.outputs.markdown_used }}
+        # Provide GITHUB_TOKEN to the gh command
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Get issue number from the event payload
+        ISSUE_NUMBER: ${{ github.event.issue.number }}
       run: |
-        ISSUE_NUMBER="${{ github.event.issue.number }}"
-        REPO="${{ github.repository }}"
-        
-        # Define COMMENT_BODY with backticks directly
-        COMMENT_BODY="Please use markdown syntax (&#96;&#96;) for code snippets in your issue. You have confirmed the checkbox that you are using markdown, but none was recognized here. The markdown syntax makes your issue more readable and makes it easier to find a solution to your problem more quickly.\\n\\nExamples:\nThe symbol &#96; turns &#96;code&#96; into \`code\`.\\n\\nFor more code use &#96; three times at the beginning and at the end like this:\\n&#96;&#96;&#96;\\nsome\\ncode\\n&#96;&#96;&#96;\\nturns into:\\n\`\`\`\\nsome\\ncode\\n\`\`\`\\nPlease edit your outgoing post immediately. If you think that this hint is not necessary and you have correctly used markdown, then you can simply ignore this message."
-        
-        # Escape special characters in COMMENT_BODY
-        ESCAPED_COMMENT_BODY=$(echo "$COMMENT_BODY" | sed 's/[&"]/\\&/g')
-        
-        # Post a comment on the issue
-        curl -s -X POST \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Content-Type: application/json" \
-          -d "{\"body\":\"${ESCAPED_COMMENT_BODY}\"}" \
-          "https://api.github.com/repos/${REPO}/issues/${ISSUE_NUMBER}/comments"
+        # Define the comment body using a heredoc for readability
+        # Use GitHub markdown within the comment itself
+        COMMENT_BODY=$(cat <<'EOF'
+        Please use Markdown syntax (&#96;&#96;) for code snippets and log files in your issue. You may have confirmed the checkbox stating you used Markdown, but none was automatically recognized in your post.
+
+        Using Markdown makes your issue significantly more readable and helps others find a solution to your problem more quickly.
+
+        **Examples:**
+
+        *   The backtick symbol (&#96;) around text like &#96;code&#96; turns it into inline `code`.
+        *   For longer code blocks or log files, use three backticks (&#96;&#96;&#96;) on lines before and after the content:
+
+            &#96;&#96;&#96;
+            # Your multi-line
+            # code or log
+            # goes here
+            &#96;&#96;&#96;
+
+            This will render like:
+            ```
+            # Your multi-line
+            # code or log
+            # goes here
+            ```
+
+        Please **edit your issue** to incorporate Markdown formatting for any code or log excerpts. If you believe this message was sent in error, please disregard it. Thank you!
+        EOF
+        )
+
+        # Use GitHub CLI to add a comment - it handles quoting and API calls correctly
+        gh issue comment "$ISSUE_NUMBER" --body "$COMMENT_BODY"
+
+
+
