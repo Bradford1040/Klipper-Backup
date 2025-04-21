@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+
+
 trap 'stty echo; exit' SIGINT
 
 parent_path=$(
@@ -11,7 +13,14 @@ if [[ ! -f .env ]]; then
     cp $parent_path/.env.example $parent_path/.env
 fi
 
-source $parent_path/utils/utils.func
+# Initialize variables from .env file
+source "$parent_path"/.env
+source "$parent_path"/utils/utils.func
+
+
+
+loading_wheel "${Y}●${NC} Checking for installed dependencies" &
+# ... (the rest of your script as it was) ...
 
 unique_id=$(getUniqueid)
 
@@ -270,98 +279,224 @@ patch_klipper-backup_update_manager() {
     fi
 }
 
-install_filewatch_service() {
-    questionline=$(getcursor)
-    tput cup $(($questionline - 2)) 0
-    tput ed
-    pos1=$(getcursor)
-    loading_wheel "${Y}●${NC} Checking for filewatch service" &
-    loading_pid=$!
-    if service_exists klipper-backup-filewatch; then
-        echo -e "\r\033[K"
-        kill $loading_pid
-        message="Would you like to reinstall the filewatch backup service? (this will trigger a backup after changes are detected)"
-    else
-        echo -e "\r\033[K"
-        kill $loading_pid
-        message="Would you like to install the filewatch backup service? (this will trigger a backup after changes are detected)"
+#!/usr/bin/env bash
+
+# Assume other parts of your script (utils.func sourcing, traps, etc.) are present
+
+# --- Helper function for compiling inotify-tools (extracted & improved) ---
+# This function attempts to compile and install inotify-tools from source.
+# Returns 0 on success, 1 on failure.
+install_inotify_from_source() {
+    echo -e "\n${Y}● Compiling latest version of inotify-tools from source (This may take a few minutes)${NC}"
+
+    # Ensure required build tools are present first
+    echo "${Y}● Checking/installing build dependencies...${NC}"
+    if ! sudo apt-get update || ! sudo apt-get install -y autoconf autotools-dev automake libtool build-essential git; then
+         echo -e "${R}● Failed to install build dependencies via apt-get. Cannot proceed with compilation.${NC}"
+         return 1
     fi
-    if ask_yn "$message"; then
-        tput cup $(($questionline - 2)) 0
-        tput ed
-        pos1=$(getcursor)
-        set +e
-        if ! checkinotify >/dev/null 2>&1; then # Checks if the version of inotify installed matches the latest release
-            removeOldInotify
-            echo -e "${Y}●${NC} Installing latest version of inotify-tools (This may take a few minutes)"
-            sudo rm -rf inotify-tools/ # remove folder incase it for some reason still exists
-            sudo rm -f /usr/bin/fsnotifywait /usr/bin/fsnotifywatch # remove symbolic links to keep error about file exists from occurring
-            loading_wheel "   ${Y}●${NC} Clone inotify-tools repo" &
-            loading_pid=$!
-            git clone https://github.com/inotify-tools/inotify-tools.git 2>/dev/null
-            kill $loading_pid
-            echo -e "\r\033[K   ${G}●${NC} Clone inotify-tools repo ${G}Done!${NC}"
-            sudo apt-get install autoconf autotools-dev automake libtool -y >/dev/null 2>&1
+    echo "${G}● Build dependencies checked/installed.${NC}"
 
-            cd inotify-tools/
+    local source_dir="inotify-tools-src-$$" # Temporary unique directory name
+    local current_dir=$(pwd)
 
-            buildCommands=("./autogen.sh" "./configure --prefix=/usr" "make" "make install")
-            for ((i = 0; i < ${#buildCommands[@]}; i++)); do
-                run_command "${buildCommands[i]}"
-            done
+    # Clean up any previous source attempts just in case
+    sudo rm -rf "$source_dir"
 
-            cd ..
-            sudo rm -rf inotify-tools
-            pos2=$(getcursor)
-            tput cup $(($pos1 - 1)) 0
-            tput ed
-            echo -e "\r\033[K${G}●${NC} Installing latest version of inotify-tools ${G}Done!${NC}"
-            set -e
+    echo "${Y}● Cloning inotify-tools repository...${NC}"
+    loading_wheel "   ${Y}Cloning...${NC}" &
+    local loading_pid=$!
+    if git clone --depth 1 https://github.com/inotify-tools/inotify-tools.git "$source_dir" > /dev/null 2>&1; then
+        kill $loading_pid &>/dev/null || true
+        wait $loading_pid &>/dev/null || true # Ensure wheel process is gone
+        echo -e "\r\033[K   ${G}✓ Cloning Done!${NC}"
+    else
+        kill $loading_pid &>/dev/null || true
+        wait $loading_pid &>/dev/null || true
+        echo -e "\r\033[K   ${R}✗ Failed to clone inotify-tools repository.${NC}"
+        sudo rm -rf "$source_dir" # Clean up failed clone attempt
+        return 1 # Indicate failure
+    fi
+
+    cd "$source_dir" || { echo -e "${R}✗ Failed to enter source directory '$source_dir'.${NC}"; sudo rm -rf "$source_dir"; return 1; }
+
+    local build_ok=true
+    local build_commands=("./autogen.sh" "./configure --prefix=/usr" "make" "sudo make install")
+
+    for cmd in "${build_commands[@]}"; do
+        echo "${Y}● Running: ${cmd}${NC}"
+        # Execute command, capture output, check status
+        if output=$($cmd 2>&1); then
+            echo "${G}✓ Success${NC}"
+        else
+            echo -e "${R}✗ Command Failed: ${cmd}${NC}"
+            echo -e "${R}Output:${NC}\n$output" # Show output on failure
+            build_ok=false
+            break # Stop build process
         fi
-        loading_wheel "${Y}●${NC} Installing filewatch service" &
-        loading_pid=$!
+    done
+
+    cd "$current_dir" # Go back to original directory
+    echo "${Y}● Cleaning up source directory...${NC}"
+    sudo rm -rf "$source_dir" # Clean up source directory after build attempt
+
+    if ! $build_ok; then
+         echo -e "${R}✗ Failed to compile/install inotify-tools from source.${NC}"
+         return 1
+    fi
+
+    # Final check after compilation attempt
+    if command -v inotifywait &> /dev/null; then
+        echo -e "${G}● Successfully compiled and installed inotify-tools.${NC}"
+        return 0
+    else
+        echo -e "${R}✗ Compilation reported success, but 'inotifywait' command still not found. Installation failed.${NC}"
+        return 1
+    fi
+}
+
+# --- Modified install_filewatch_service function ---
+install_filewatch_service() {
+    local questionline=$(getcursor)
+    # Clear potential leftover lines from previous operations if needed
+    # tput cup $(($questionline - 2)) 0
+    # tput ed
+    local pos1=$(getcursor) # Record cursor position
+
+    local message
+    if service_exists klipper-backup-filewatch; then
+        message="Would you like to reinstall the filewatch backup service? (triggers backup on config changes)"
+    else
+        message="Would you like to install the filewatch backup service? (triggers backup on config changes)"
+    fi
+
+    if ask_yn "$message"; then
+        # Clear the prompt line(s) - adjust line count as needed (e.g., -1 for one line, -2 for two)
+        tput cup $(($questionline - 1)) 0 # Go up to the line where the question started
+        tput ed # Erase from cursor to end of screen
+
+        # --- Start of new inotify-tools handling ---
+        local inotify_ok=false
+        echo "${Y}● Checking for required 'inotifywait' command...${NC}"
+        if command -v inotifywait &> /dev/null; then
+             echo -e "${G}✓ 'inotifywait' found.${NC}"
+             inotify_ok=true
+             sleep 0.5 # Brief pause for user to see message
+        else
+            echo -e "${R}✗ 'inotifywait' not found.${NC}"
+            echo "${Y}● Attempting to install 'inotify-tools' via package manager...${NC}"
+            # Run apt update non-interactively if possible, handle potential errors
+            sudo apt-get update -qq > /dev/null 2>&1 || echo "${Y}Warning: apt-get update failed, proceeding anyway.${NC}"
+
+            if sudo apt-get install -y inotify-tools; then
+                # Verify command exists after installation
+                if command -v inotifywait &> /dev/null; then
+                    echo -e "${G}✓ Successfully installed 'inotify-tools' via package manager.${NC}"
+                    inotify_ok=true
+                else
+                    # This case is unlikely but possible if package is broken or PATH is weird
+                    echo -e "${R}✗ Package manager reported success, but 'inotifywait' command still not found.${NC}"
+                    echo "${Y}● Falling back to compiling from source.${NC}"
+                    # Attempt compilation
+                    if install_inotify_from_source; then
+                         inotify_ok=true
+                    fi
+                fi
+            else
+                echo -e "${R}✗ Failed to install 'inotify-tools' via package manager.${NC}"
+                echo "${Y}● Falling back to compiling from source.${NC}"
+                 # Attempt compilation
+                 if install_inotify_from_source; then
+                     inotify_ok=true
+                 fi
+            fi
+        fi
+        # --- End of new inotify-tools handling ---
+
+        # Proceed only if inotify-tools are confirmed available
+        if ! $inotify_ok; then
+            echo -e "${R}✗ Failed to install or find required 'inotifywait'. Cannot install filewatch service.${NC}\n"
+            # Decide whether to exit or just skip this service installation
+            # exit 1 # Or just let the script continue without this service
+            return 1 # Indicate failure of this function
+        fi
+
+        # --- Existing service installation logic (with minor improvements) ---
+        echo "${Y}● Installing Klipper-Backup filewatch service...${NC}"
+        loading_wheel "   ${Y}Installing service...${NC}" &
+        local loading_pid=$!
+
+        local install_success=false
+        # Use a subshell for the installation commands to capture overall success/failure easily
+        # Added error checking for each step within the subshell
         if (
-            !(
-            sudo systemctl stop klipper-backup-filewatch.service 2>/dev/null
-            sudo cp $parent_path/install-files/klipper-backup-filewatch.service /etc/systemd/system/klipper-backup-filewatch.service
+            set -e # Exit subshell immediately on error
+            echo "Stopping existing service (if any)..." >&2 # Log steps to stderr
+            sudo systemctl stop klipper-backup-filewatch.service >/dev/null 2>&1 || true # Ignore error if not running
+            echo "Copying service file..." >&2
+            sudo cp "$parent_path/install-files/klipper-backup-filewatch.service" "/etc/systemd/system/klipper-backup-filewatch.service"
+            echo "Patching service file..." >&2
             sudo sed -i "s/^After=.*/After=$(wantsafter)/" "/etc/systemd/system/klipper-backup-filewatch.service"
             sudo sed -i "s/^Wants=.*/Wants=$(wantsafter)/" "/etc/systemd/system/klipper-backup-filewatch.service"
             sudo sed -i "s/^User=.*/User=${SUDO_USER:-$USER}/" "/etc/systemd/system/klipper-backup-filewatch.service"
-            sudo systemctl daemon-reload 2>/dev/null
-            sudo systemctl enable klipper-backup-filewatch.service 2>/dev/null
-            sudo systemctl start klipper-backup-filewatch.service 2>/dev/null
-            sleep .5
-            kill $loading_pid
-        ) &
-
-            start_time=$(date +%s)
-            timeout_duration=20
-
-            while [ "$(ps -p $! -o comm=)" ]; do
-                # Calculate elapsed time
-                end_time=$(date +%s)
-                elapsed_time=$((end_time - start_time))
-
-                # Check if the timeout has been reached
-                if [ $elapsed_time -gt $timeout_duration ]; then
-                    echo -e "\r\033[K${R}●${NC} Installing filewatch service took to long to complete!\n"
-                    kill $!
-                    kill $loading_pid
-                    exit 1
-                fi
-
-                sleep 1
-            done
+            echo "Reloading systemd daemon..." >&2
+            sudo systemctl daemon-reload
+            echo "Enabling service..." >&2
+            sudo systemctl enable klipper-backup-filewatch.service
+            echo "Starting service..." >&2
+            sudo systemctl start klipper-backup-filewatch.service
+            # Optional: Short pause to allow service to potentially fail immediately
+            sleep 1
+            # Final check if service is active
+            echo "Checking service status..." >&2
+            sudo systemctl is-active --quiet klipper-backup-filewatch.service
         ); then
-            echo -e "\r\033[K${G}●${NC} Installing filewatch service ${G}Done!${NC}\n"
+             # Subshell succeeded
+             install_success=true
+        else
+             # Subshell failed (due to set -e or the final status check)
+             install_success=false
+             # Error message will likely come from the failing command due to set -e
+             echo -e "${R}✗ Service installation/start failed within subshell.${NC}" >&2
         fi
-    else
-        tput cup $(($questionline - 2)) 0
-        tput ed
-        echo -e "\r\033[K${M}●${NC} Installing filewatch service ${M}skipped!${NC}\n"
 
+        # Stop the loading wheel regardless of success/failure
+        kill $loading_pid &>/dev/null || true
+        wait $loading_pid &>/dev/null || true # Wait for kill to finish
+
+        # Check the result
+        if $install_success; then
+            echo -e "\r\033[K${G}✓ Installing filewatch service Done!${NC}\n"
+        else
+            echo -e "\r\033[K${R}✗ Failed to install or start filewatch service.${NC}\n"
+            # Optional: show status for debugging
+            # echo "Service status:"
+            # sudo systemctl status klipper-backup-filewatch.service --no-pager || true
+            return 1 # Indicate failure
+        fi
+        # --- End of existing service installation logic ---
+
+    else
+        # User skipped installing the service
+        tput cup $(($questionline - 1)) 0 # Go up to the line where the question started
+        tput ed # Erase from cursor to end of screen
+        echo -e "\r\033[K${M}● Installing filewatch service skipped!${NC}\n"
     fi
+    return 0 # Indicate success or skipped
 }
+
+# --- Placeholder for other functions needed by the script ---
+# You need to ensure these functions are defined or sourced from utils.func
+getcursor() { echo 10; } # Dummy
+service_exists() { return 1; } # Dummy: Assume service doesn't exist initially
+ask_yn() { read -p "$1 (y/N)? " -n 1 -r; echo; [[ $REPLY =~ ^[Yy]$ ]]; } # Basic implementation
+loading_wheel() { sleep 1; } # Dummy
+wantsafter() { echo "network-online.target"; } # Dummy
+parent_path="." # Dummy
+SUDO_USER=${SUDO_USER:-$USER} # Ensure SUDO_USER is set
+
+# Example call (replace with your main script logic)
+# install_filewatch_service
 
 install_backup_service() {
     questionline=$(getcursor)

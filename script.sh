@@ -13,6 +13,27 @@ parent_path=$(
 source "$parent_path"/.env
 source "$parent_path"/utils/utils.func
 
+# --- Define Lock Directory ---
+# Ensure backup_path is defined (it comes from .env or defaults)
+backup_folder="config_backup"
+backup_path="$HOME/$backup_folder"
+lock_dir="$backup_path/.script.lock" # Using a hidden dir inside the backup path
+
+# --- Attempt Lock Acquisition ---
+if mkdir "$lock_dir" >/dev/null 2>&1; then
+    # Lock acquired successfully, set trap to remove lock on exit
+    # This trap runs on EXIT (normal exit), TERM (termination), INT (interrupt Ctrl+C)
+    trap 'rmdir "$lock_dir" >/dev/null 2>&1' EXIT TERM INT
+    echo "[Lock] Acquired lock: $lock_dir" # Optional: Info message
+else
+    # Lock acquisition failed, another instance is likely running
+    echo "[Lock] Failed to acquire lock: $lock_dir. Another instance may be running. Exiting." >&2
+    exit 1 # Exit script
+fi
+# --- Lock Acquired - Proceed with script ---
+
+# --- Rest of your script starts here ---
+
 loading_wheel "${Y}●${NC} Checking for installed dependencies" &
 loading_pid=$!
 check_dependencies "jq" "curl" "rsync"
@@ -268,4 +289,7 @@ fi
 git push -u origin "$branch_name"
 
 # Remove files except .git folder after backup so that any file deletions can be logged on next backup
-find "$backup_path" -maxdepth 1 -mindepth 1 ! -name '.git' ! -name 'README.md' -exec rm -rf {} \;
+# NOTE: The trap set earlier will automatically remove the lock directory AFTER this find command finishes
+#       or if the script exits at any point before this.
+find "$backup_path" -maxdepth 1 -mindepth 1 ! -name '.git' ! -name 'README.md' ! -name '.script.lock' -exec rm -rf {} \;
+# The script will exit here, triggering the EXIT trap which removes the lock directory.
