@@ -16,6 +16,8 @@ build/
 *.out
 *.o
 *.bak
+*.old
+
 
 # Git-specific files
 *.orig
