@@ -124,7 +124,7 @@ if [ "$debug_output" = true ]; then
     else
         echo "$line"
     fi
-    done < $HOME/punisher_data/klipper-backup/.env
+    done < "$parent_path/.env" # Use relative path
     end_debug_line
 
     # Debug output: Check git repo

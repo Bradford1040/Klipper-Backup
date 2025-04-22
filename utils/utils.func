@@ -6,9 +6,9 @@ C=$'\e[96m'   # Cyan ${C}
 NC=$'\e[0m'   # No Color ${NC}
 
 # Create unique id for git email
-getUniqueid() {
-    echo $(date +%s%N | md5sum | head -c 7)
-}
+getUniqueid() { 
+	date +%s%N | md5sum | head -c 7; 
+} # Simple unique ID
 
 wantsafter() {
     if dpkg -l | grep -q '^ii.*network-manager' && systemctl is-active --quiet "NetworkManager"; then
@@ -18,23 +18,26 @@ wantsafter() {
     fi
 }
 
-loading_wheel() {
-    local frames="/ - \\ |"
-    local delay=0.1
+loading_wheel() { 
+	local chars="/-\|"; 
+	local delay=0.1; 
+	local message="$@"; 
+	tput civis;
+	
+	while true; do 
+		for i in {0..3}; do 
+			echo -ne "\r${chars:$i:1} $message"; 
+			sleep $delay; 
+		done; 
+	done & 
+} # Basic wheel
 
-    while :; do
-        for frame in $frames; do
-            echo -n -e "\r$1 $frame"
-            sleep $delay
-        done
-    done
-}
-
-getcursor() {
-    local pos
-    IFS='[;' read -p $'\e[6n' -d R -a pos -rs || echo "failed with error: $? ; ${pos[*]}"
-    echo "${pos[1]}"
-}
+getcursor() { 
+	tput cup 999 0; 
+	echo -ne "\033[6n"; 
+	read -sdR CURPOS; CURPOS=${CURPOS#*[}; 
+	echo ${CURPOS%;*}; 
+} # More robust getcursor
 
 run_command() {
     command=$1
@@ -45,10 +48,10 @@ run_command() {
     echo -e "\r\033[K   ${G}●${NC} Running $command ${G}Done!${NC}"
 }
 
-# Move cursor up one line and clear the line
-clearUp() {
-    echo -e "\r\033[K\033[1A"
-}
+
+clearUp() { 
+	tput ed; 
+} # Clear from cursor to end of screen
 
 logo() {
     clear
@@ -67,15 +70,17 @@ EOF
     echo ""
 }
 
-ask_yn() {
-    while true; do
-        read -rp "$1 (yes/no, default is yes): " answer
-        case $answer in
-        [Yy]* | "") return 0 ;;
-        [Nn]*) return 1 ;;
-        *) ;;
-        esac
-    done
+ask_yn() { 
+	local prompt="$1"; 
+	local response; 
+	while true; do 
+		read -p "$prompt (y/N)? " -n 1 -r response < /dev/tty; echo; 
+		case "$response" in 
+		[yY]) return 0;; 
+		[nN]|"") return 1;; 
+		*) echo "Please answer yes or no.";; 
+		esac; 
+	done; 
 }
 
 ask_token() {
@@ -101,15 +106,13 @@ ask_token() {
     echo "$input"
 }
 
-ask_textinput() {
-    if [ -n "$2" ]; then
-        read -rp "$1 (default is $2): " input
-        echo "${input:-$2}"
-    else
-        read -rp "$1: " input
-        echo "$input"
-    fi
-}
+ask_textinput() { 
+	local prompt="$1"; 
+	local default="$2"; 
+	local response; 
+		read -p "$prompt [$default]: " response < /dev/tty; 
+		echo "${response:-$default}"; 
+} # Basic text input
 
 # Function to move the cursor to a specific position
 function move_cursor() {
@@ -178,12 +181,8 @@ check_ghToken() {
 }
 
 service_exists() {
-    if systemctl list-unit-files | grep -q "$1.service"; then
-        return 0 # Service exists
-    else
-        return 1 # Service does not exist
-    fi
-}
+    systemctl list-units --full -all | grep -q "$1.service"; 
+} # Basic service check
 
 checkinotify() {
     local_version=$(inotifywait -h | grep -oP '\d+\.\d+\.\d+\.\d+')
@@ -268,10 +267,10 @@ show_help(){
 fix(){
     loading_wheel "${Y}●{NC} Delete config_backup folder" &
     loading_pid=$!
-    if [ ! -d "$HOME/punisher_data/$backup_folder" ]; then
+    if [ ! -d "$HOME/$backup_folder" ]; then
         echo -e "\r\033[K${R}config_backup folder does exist${NC}\n"
     else
-        rm -rf $HOME/punisher_data/$backup_folder
+        rm -rf $HOME/$backup_folder
         echo -e "\r\033[K${G}●${NC} Delete config_backup folder ${G}Done!${NC}\n"
     fi
     kill $loading_pid
