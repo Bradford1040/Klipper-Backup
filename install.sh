@@ -23,8 +23,9 @@ else
     exit 1
 fi
 
+# Must edit before you run ./install.sh
 # --- Global Variables ---
-# We will define KLIPPER_DATA_DIR later after user input
+# define KLIPPER_DATA_DIR
 KLIPPER_DATA_DIR=""
 KLIPPER_BACKUP_INSTALL_DIR="" # Full path to where klipper-backup will be installed
 KLIPPER_CONFIG_DIR="" # Full path to the klipper config directory (e.g., .../printer_data/config)

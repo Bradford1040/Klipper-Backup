@@ -1,4 +1,4 @@
-# KLIPPER-BACKUP Explained for a New User AKA NooB
+# KLIPPER-BACKUP Explained for a New User
 
 * Imagine you've spent hours, maybe even days, perfectly tuning your Klipper 3D printer configuration (printer.cfg). You've got your print speeds
 * dialed in, your resonance compensation perfect, and macros set up just the way you like them. Now, what happens if the PC/Laptop updates and
