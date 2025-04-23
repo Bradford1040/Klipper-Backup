@@ -883,17 +883,17 @@ fi
 
 # --- Script Entry Point ---
 # Check if running as root, warn if so
-if [[ $EUID -eq 0 ]]; then
-   echo "${R}Warning: Running this script as root is not recommended.${NC}"
-   echo "${Y}Please run as a regular user with sudo privileges.${NC}"
-   # Optionally exit: exit 1
+#if [[ $EUID -eq 0 ]]; then
+#   echo "${R}Warning: Running this script as root is not recommended.${NC}"
+#   echo "${Y}Please run as a regular user with sudo privileges.${NC}"
+#   # Optionally exit: exit 1
 
 # Check if called with specific argument (e.g., for update check only)
-elif [ "$1" == "check_updates" ]; then
+#elif [ "$1" == "check_updates" ]; then
     # Need to know the target dir for check_updates
     # This mode might be less useful now without knowing the target dir beforehand
-    echo "${Y}Warning: 'check_updates' argument requires manual directory navigation.${NC}"
-    echo "${Y}Please run the script without arguments for interactive installation/update.${NC}"
+#    echo "${Y}Warning: 'check_updates' argument requires manual directory navigation.${NC}"
+#    echo "${Y}Please run the script without arguments for interactive installation/update.${NC}"
     # Example: Manually navigate and run check_updates if needed
     # read -p "Enter path to klipper-backup installation: " update_path
     # if [[ -d "$update_path" ]]; then
@@ -902,8 +902,8 @@ elif [ "$1" == "check_updates" ]; then
     # else
     #    echo "${R}Directory not found.${NC}"
     # fi
-else
+#else
     # Run the main installation process
-    main # <--- This call executes the main function
+#    main # <--- This call executes the main function
 
-fi
+#fi
