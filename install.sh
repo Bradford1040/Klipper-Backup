@@ -492,8 +492,6 @@ patch_klipper_backup_update_manager() {
     fi
 }
 
-#!/bin/bash
-
 
 # Function to handle shell_command.cfg setup
 install_shell_command_config() {
