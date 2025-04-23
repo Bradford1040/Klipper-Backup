@@ -243,7 +243,7 @@ for path in "${backupPaths[@]}"; do
                 echo "Skipping symbolic link: $file"
             else
                 file=$(readlink -e "$file") # Get absolute path before copy (Allows usage of .. in filepath eg. ../../etc/fstab resolves to /etc/fstab )
-                rsync -Rr "${file##"$HOME"/}" "$backup_path"
+                rsync -aR "${file##"$HOME"/}" "$backup_path"
             fi
         done
     fi
