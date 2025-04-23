@@ -819,7 +819,6 @@ install_cron() {
 
 # --- Dummy/Placeholder functions (if not fully defined in utils.func) ---
 # Replace these with actual implementations or ensure they exist in utils.func
-# getcursor() { tput cup 999 0; echo -ne "\033[6n"; read -sdR CURPOS; CURPOS=${CURPOS#*[}; echo ${CURPOS%;*}; } # More robust getcursor
 # service_exists() { systemctl list-units --full -all | grep -q "$1.service"; } # Basic service check
 # ask_yn() { local prompt="$1"; local response; while true; do read -p "$prompt (y/N)? " -n 1 -r response < /dev/tty; echo; case "$response" in [yY]) return 0;; [nN]|"") return 1;; *) echo "Please answer yes or no.";; esac; done; }
 # loading_wheel() { local chars="/-\|"; local delay=0.1; local message="$@"; tput civis; while true; do for i in {0..3}; do echo -ne "\r${chars:$i:1} $message"; sleep $delay; done; done & } # Basic wheel
@@ -828,9 +827,6 @@ install_cron() {
 # getUniqueid() { date +%s%N | md5sum | head -c 7; } # Simple unique ID
 # logo() { echo "--- Klipper Backup Installer ---"; } # Simple logo
 # ask_textinput() { local prompt="$1"; local default="$2"; local response; read -p "$prompt [$default]: " response < /dev/tty; echo "${response:-$default}"; } # Basic text input
-# --- Dummy/Placeholder functions ---
-# ... (Keep these if needed, or ensure they are in utils.func) ...
-# ... (check_ghToken definition might be here or moved earlier) ...
 
 
 # Function to check GitHub Token validity using the API
@@ -844,23 +840,23 @@ local username
 if [ -z "$token" ]; then
     echo "Error: Token cannot be empty." >&2 # Output errors to stderr
     return 1 # Indicate failure
-fi
+    fi
 
-# Attempt to use the token with the GitHub API to get user info
-# -sS: Silent mode but show errors
-# -w "%{http_code}": Output HTTP status code
-# -o >(cat): Capture body output to variable (requires bash >= 4)
-# Use temporary file for body if >(cat) is not desired/compatible
-api_user_info=$(curl -sS -H "Authorization: token $token" https://api.github.com/user -o >(cat) -w "\n%{http_code}")
+    # Attempt to use the token with the GitHub API to get user info
+    # -sS: Silent mode but show errors
+    # -w "%{http_code}": Output HTTP status code
+    # -o >(cat): Capture body output to variable (requires bash >= 4)
+    # Use temporary file for body if >(cat) is not desired/compatible
+    api_user_info=$(curl -sS -H "Authorization: token $token" https://api.github.com/user -o >(cat) -w "\n%{http_code}")
 
-# Extract HTTP status code (last line of output)
-http_status=$(echo "$api_user_info" | tail -n1)
-# Extract body (all lines except the last)
-local body=$(echo "$api_user_info" | sed '$d') # sed '$d' deletes the last line
+    # Extract HTTP status code (last line of output)
+    http_status=$(echo "$api_user_info" | tail -n1)
+    # Extract body (all lines except the last)
+    local body=$(echo "$api_user_info" | sed '$d') # sed '$d' deletes the last line
 
-if [ "$http_status" -eq 200 ]; then
-# Attempt to extract username using jq
-username=$(echo "$body" | jq -r '.login // empty')
+    if [ "$http_status" -eq 200 ]; then
+    # Attempt to extract username using jq
+    username=$(echo "$body" | jq -r '.login // empty')
     if [[ -n "$username" ]]; then
     echo "$username" # Return username on success
     return 0 # Indicate success
