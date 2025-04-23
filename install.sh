@@ -134,7 +134,7 @@ install_repo() {
             loading_wheel "   Cloning repository..." &
             local loading_pid=$!
             # Clone directly into the target directory name 'klipper-backup' inside the current dir
-            if git clone -b KIAUH_V1 --single-branch https://github.com/Bradford1040/klipper-backup.git klipper-backup > /dev/null 2>&1; then
+            if git clone -b KIAUH_V2 --single-branch https://github.com/Bradford1040/klipper-backup.git klipper-backup > /dev/null 2>&1; then
                 kill $loading_pid &>/dev/null || true
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${G}✓ Cloning repository Done!${NC}"
@@ -191,10 +191,10 @@ check_updates() {
     echo "Checking for updates in: $(pwd)" # Debugging
 
     # Fetch latest changes from remote without merging
-    git fetch origin KIAUH_V1 > /dev/null 2>&1
+    git fetch origin KIAUH_V2 > /dev/null 2>&1
 
     local local_hash=$(git rev-parse HEAD)
-    local remote_hash=$(git rev-parse origin/KIAUH_V1) # Check against the specific branch
+    local remote_hash=$(git rev-parse origin/KIAUH_V2) # Check against the specific branch
 
     if [ "$local_hash" = "$remote_hash" ]; then
         echo -e "${G}●${NC} Klipper-Backup ${G}is up to date.${NC}\n"
@@ -217,7 +217,7 @@ check_updates() {
                  stash_needed=true
             fi
 
-            if git pull origin KIAUH_V1 --ff-only > /dev/null 2>&1; then # Try fast-forward first
+            if git pull origin KIAUH_V2 --ff-only > /dev/null 2>&1; then # Try fast-forward first
                 kill $loading_pid &>/dev/null || true
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${G}✓ Pulling changes Done!${NC}"
@@ -245,7 +245,7 @@ check_updates() {
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${R}✗ Error Updating Klipper-Backup (Maybe conflicting changes).${NC}"
                 echo -e "   ${Y}Attempting 'git reset --hard' and restarting script...${NC}"
-                git reset --hard origin/KIAUH_V1 > /dev/null 2>&1 # Reset to remote branch state
+                git reset --hard origin/KIAUH_V2 > /dev/null 2>&1 # Reset to remote branch state
                 if $stash_needed; then git stash drop > /dev/null 2>&1 || true; fi # Drop stash if reset
                 sleep 2
                 exec "$parent_path/install.sh"
