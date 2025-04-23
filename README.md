@@ -70,11 +70,11 @@ Download KLIPPER-BACKUP:
    cd ~
 ```
 
-* Clone the repository, this is a the KIAUH_V1 branch that you must edit,
+* Clone the repository, this is a the KIAUH_V2 branch that you must edit,
 * (download it using git):
 
 ```shell
-  git clone -b KIAUH_V1 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/klipper-backup
+  git clone -b KIAUH_V2 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/klipper-backup
 ```
 
 * Go into the newly downloaded custom directory:
