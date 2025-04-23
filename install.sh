@@ -117,10 +117,9 @@ dependencies() {
 
 # --- Install/Update Klipper-Backup Repository ---
 install_repo() {
-    local questionline=$(getcursor)
+
     if ask_yn "Do you want to proceed with Klipper-Backup installation/update?"; then
-        tput cup $(($questionline - 1)) 0 # Go up one line from cursor
-        clearUp # Clear from cursor down
+
 
         # Navigate to the chosen Klipper data directory
         if ! cd "$HOME/$KLIPPER_DATA_DIR"; then
@@ -174,8 +173,7 @@ install_repo() {
         cd "$parent_path" || echo "${Y}Warning: Could not return to script directory '$parent_path'.${NC}"
 
     else
-        tput cup $(($questionline - 1)) 0 # Go up one line
-        clearUp # Clear from cursor down
+
         echo -e "${R}● Installation aborted.${NC}\n"
         exit 1
     fi
@@ -200,10 +198,9 @@ check_updates() {
         echo -e "${G}●${NC} Klipper-Backup ${G}is up to date.${NC}\n"
     else
         echo -e "${Y}●${NC} Update for Klipper-Backup ${Y}Available!${NC}\n"
-        local questionline=$(getcursor)
+
         if ask_yn "Proceed with update?"; then
-            tput cup $(($questionline - 3)) 0 # Adjust line count based on ask_yn output
-            tput ed # Erase from cursor to end of screen
+
 
             echo -e "${Y}●${NC} Updating Klipper-Backup..."
             loading_wheel "   Pulling changes..." &
@@ -251,8 +248,7 @@ check_updates() {
                 exec "$parent_path/install.sh"
             fi
         else
-            tput cup $(($questionline - 3)) 0 # Adjust line count
-            clearUp
+
             echo -e "${M}●${NC} Klipper-Backup update ${M}skipped!${NC}\n"
         fi
     fi
@@ -264,7 +260,7 @@ check_updates() {
 # --- Configure .env File ---
 configure() {
     local ghtoken_username=""
-    local questionline=$(getcursor)
+
     local message
 
     # Check if the target .env file exists and if token is default
@@ -279,13 +275,11 @@ configure() {
     fi
 
     if ask_yn "$message"; then
-        tput cup $(($questionline - 1)) 0 # Go up one line
-        clearUp # Clear from cursor down
+
 
         # --- Nested functions for getting user input ---
         # These functions now modify the correct ENV_FILE_PATH
-        local pos1=$(getcursor) # Record starting position for input fields
-        local pos2=$(getcursor)
+
 
         getToken() {
             echo -e "\nSee: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
@@ -298,28 +292,25 @@ configure() {
                 sed -i "s|^github_token=.*|github_token=$ghtoken|" "$ENV_FILE_PATH"
                 ghtoken_username=$result # Store username derived from token check
                 echo -e "${G}✓ Token validated and saved.${NC}"
-                tput cup $pos2 0 # Return cursor to start of input area
-                tput ed # Clear previous lines below cursor
+
             else
-                tput cup $(($pos2 - 1)) 0 # Go up to overwrite previous prompt
-                tput ed # Clear lines below
-                pos2=$(getcursor) # Reset pos2
+
                 echo "${R}Invalid GitHub token or unable to contact GitHub API.${NC}"
                 echo "${Y}Please check token and network connection, then try again.${NC}"
                 getToken # Ask again
             fi
         }
         getUser() {
-            pos2=$(getcursor) # Update cursor position
+
             local ghuser=$(ask_textinput "Enter your GitHub username" "$ghtoken_username") # Suggest username from token check
 
             menu # Assuming menu redraws or handles cursor
             local exitstatus=$?
             if [ $exitstatus = 0 ]; then
                 sed -i "s|^github_username=.*|github_username=$ghuser|" "$ENV_FILE_PATH"
-                tput cup $pos2 0; tput ed # Clear input area
+
             else
-                tput cup $(($pos2 - 1)) 0; tput ed # Clear input area
+
                 getUser # Ask again
             fi
         }
@@ -331,14 +322,14 @@ configure() {
             local exitstatus=$?
             if [ $exitstatus = 0 ]; then
                 sed -i "s|^github_repository=.*|github_repository=$ghrepo|" "$ENV_FILE_PATH"
-                tput cup $pos2 0; tput ed
+
             else
-                tput cup $(($pos2 - 1)) 0; tput ed
+
                 getRepo
             fi
         }
         getBranch() {
-            pos2=$(getcursor)
+
             local repobranch=$(ask_textinput "Enter your desired branch name" "main")
 
             menu
@@ -346,28 +337,28 @@ configure() {
             if [ $exitstatus = 0 ]; then
                 # Ensure branch name is quoted in .env if it contains special chars (unlikely but safe)
                 sed -i "s|^branch_name=.*|branch_name=\"$repobranch\"|" "$ENV_FILE_PATH"
-                tput cup $pos2 0; tput ed
+
             else
-                tput cup $(($pos2 - 1)) 0; tput ed
+
                 getBranch
             fi
         }
         getCommitName() {
-            pos2=$(getcursor)
+
             local commitname=$(ask_textinput "Enter desired commit username" "$(whoami)")
 
             menu
             local exitstatus=$?
             if [ $exitstatus = 0 ]; then
                 sed -i "s|^commit_username=.*|commit_username=\"$commitname\"|" "$ENV_FILE_PATH"
-                tput cup $pos2 0; tput ed
+
             else
-                tput cup $(($pos2 - 1)) 0; tput ed
+
                 getCommitName
             fi
         }
         getCommitEmail() {
-            pos2=$(getcursor)
+
             local unique_id=$(getUniqueid) # Assuming getUniqueid is from utils
             local commitemail=$(ask_textinput "Enter desired commit email" "$(whoami)@$(hostname --short)-$unique_id")
 
@@ -375,9 +366,9 @@ configure() {
             local exitstatus=$?
             if [ $exitstatus = 0 ]; then
                 sed -i "s|^commit_email=.*|commit_email=\"$commitemail\"|" "$ENV_FILE_PATH"
-                tput cup $pos2 0; tput ed
+
             else
-                tput cup $(($pos2 - 1)) 0; tput ed
+
                 getCommitEmail
             fi
         }
@@ -392,14 +383,12 @@ configure() {
         getCommitEmail
 
         # --- Final cleanup after configuration ---
-        tput cup $(($pos1 -1)) 0 # Go back to the line above the first input prompt
-        tput ed # Clear everything below
+
         echo -e "${G}●${NC} Configuration ${G}Done!${NC}\n"
 
     else
         # User skipped configuration
-        tput cup $(($questionline - 1)) 0 # Go up one line
-        clearUp # Clear from cursor down
+
         echo -e "${M}●${NC} Configuration ${M}skipped!${NC}\n"
     fi
      # Ensure cursor is on a new line after this section
@@ -409,7 +398,7 @@ configure() {
 
 # --- Patch Moonraker Update Manager ---
 patch_klipper_backup_update_manager() {
-    local questionline=$(getcursor)
+
     local moonraker_conf_path="$KLIPPER_CONFIG_DIR/moonraker.conf" # Use derived path
     local moonraker_service_name="moonraker" # Default, adjust if needed (e.g., moonraker-punisher)
 
@@ -447,8 +436,7 @@ patch_klipper_backup_update_manager() {
 
     # --- Ask user ---
     if ask_yn "Add Klipper-Backup to Moonraker update manager?"; then
-        tput cup $(($questionline - 1)) 0 # Go up one line
-        clearUp # Clear from cursor down
+
 
         echo "${Y}●${NC} Adding Klipper-Backup to update manager..."
         loading_wheel "   Patching $moonraker_conf_path..." &
@@ -483,8 +471,7 @@ patch_klipper_backup_update_manager() {
             echo -e "${Y}Check permissions and try again.${NC}"
         fi
     else
-        tput cup $(($questionline - 1)) 0 # Go up one line
-        clearUp # Clear from cursor down
+
         echo -e "${M}●${NC} Adding Klipper-Backup to update manager ${M}skipped!${NC}\n"
     fi
 }
@@ -623,7 +610,7 @@ install_inotify_from_source() {
 }
 
 install_filewatch_service() {
-    local questionline=$(getcursor)
+
     local service_name="klipper-backup-filewatch"
     local service_file="/etc/systemd/system/${service_name}.service"
     local message
@@ -635,7 +622,7 @@ install_filewatch_service() {
     fi
 
     if ask_yn "$message"; then
-        tput cup $(($questionline - 1)) 0; tput ed # Clear prompt area
+
 
         # --- Check/Install inotify-tools ---
         local inotify_ok=false
@@ -731,7 +718,7 @@ install_filewatch_service() {
             return 1 # Indicate failure
         fi
     else
-        tput cup $(($questionline - 1)) 0; tput ed # Clear prompt area
+
         echo -e "\r\033[K${M}● Installing filewatch service skipped!${NC}\n"
     fi
     return 0 # Indicate success or skipped
@@ -740,7 +727,7 @@ install_filewatch_service() {
 
 # --- Install On-Boot Backup Service ---
 install_backup_service() {
-    local questionline=$(getcursor)
+
     local service_name="klipper-backup-on-boot"
     local service_file="/etc/systemd/system/${service_name}.service"
     local message
@@ -753,7 +740,7 @@ install_backup_service() {
     fi
 
     if ask_yn "$message"; then
-        tput cup $(($questionline - 1)) 0; tput ed # Clear prompt area
+
 
         echo "${Y}●${NC} Installing on-boot service..."
         loading_wheel "   ${Y}Installing service...${NC}" & local loading_pid=$!
@@ -794,7 +781,7 @@ install_backup_service() {
             return 1
         fi
     else
-        tput cup $(($questionline - 1)) 0; tput ed # Clear prompt area
+
         echo -e "\r\033[K${M}●${NC} Installing on-boot service ${M}skipped!${NC}\n"
     fi
     return 0
@@ -802,7 +789,7 @@ install_backup_service() {
 
 # --- Install Cron Job ---
 install_cron() {
-    local questionline=$(getcursor)
+
     local cron_script_path="$KLIPPER_BACKUP_INSTALL_DIR/script.sh" # Use derived path
     local cron_comment="# Klipper-Backup periodic backup" # Identify the cron job
 
@@ -820,7 +807,7 @@ install_cron() {
 
     # Ask user
     if ask_yn "Install cron task? (automatic backup every 4 hours)"; then
-        tput cup $(($questionline - 1)) 0; tput ed # Clear prompt area
+
 
         echo "${Y}●${NC} Installing cron task..."
         loading_wheel "   Adding cron job..." & local loading_pid=$!
@@ -839,7 +826,7 @@ install_cron() {
             return 1
         fi
     else
-        tput cup $(($questionline - 1)) 0; tput ed # Clear prompt area
+
         echo -e "${M}●${NC} Installing cron task ${M}skipped!${NC}\n"
     fi
     return 0
