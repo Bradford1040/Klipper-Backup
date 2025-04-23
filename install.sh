@@ -842,48 +842,48 @@ exit 0
 
 # Function to check GitHub Token validity using the API
 check_ghToken() {
-  local token="$1"
-  local api_user_info
-  local http_status
-  local username
+local token="$1"
+local api_user_info
+local http_status
+local username
 
-  # Basic check if empty
-  if [ -z "$token" ]; then
+# Basic check if empty
+if [ -z "$token" ]; then
     echo "Error: Token cannot be empty." >&2 # Output errors to stderr
     return 1 # Indicate failure
-  fi
+fi
 
-  # Attempt to use the token with the GitHub API to get user info
-  # -sS: Silent mode but show errors
-  # -w "%{http_code}": Output HTTP status code
-  # -o >(cat): Capture body output to variable (requires bash >= 4)
-  # Use temporary file for body if >(cat) is not desired/compatible
-  api_user_info=$(curl -sS -H "Authorization: token $token" https://api.github.com/user -o >(cat) -w "\n%{http_code}")
+# Attempt to use the token with the GitHub API to get user info
+# -sS: Silent mode but show errors
+# -w "%{http_code}": Output HTTP status code
+# -o >(cat): Capture body output to variable (requires bash >= 4)
+# Use temporary file for body if >(cat) is not desired/compatible
+api_user_info=$(curl -sS -H "Authorization: token $token" https://api.github.com/user -o >(cat) -w "\n%{http_code}")
 
-  # Extract HTTP status code (last line of output)
-  http_status=$(echo "$api_user_info" | tail -n1)
-  # Extract body (all lines except the last)
-  local body=$(echo "$api_user_info" | sed '$d') # sed '$d' deletes the last line
+# Extract HTTP status code (last line of output)
+http_status=$(echo "$api_user_info" | tail -n1)
+# Extract body (all lines except the last)
+local body=$(echo "$api_user_info" | sed '$d') # sed '$d' deletes the last line
 
-  if [ "$http_status" -eq 200 ]; then
-    # Attempt to extract username using jq
-    username=$(echo "$body" | jq -r '.login // empty')
+if [ "$http_status" -eq 200 ]; then
+# Attempt to extract username using jq
+username=$(echo "$body" | jq -r '.login // empty')
     if [[ -n "$username" ]]; then
-        echo "$username" # Return username on success
-        return 0 # Indicate success
+    echo "$username" # Return username on success
+    return 0 # Indicate success
     else
-        echo "Error: Could not parse username from GitHub API response." >&2
-        # Optionally log the body here for debugging, be careful with sensitive info
-        return 1 # Indicate failure (parsing error)
+    echo "Error: Could not parse username from GitHub API response." >&2
+    # Optionally log the body here for debugging, be careful with sensitive info
+    return 1 # Indicate failure (parsing error)
     fi
-  elif [ "$http_status" -eq 401 ]; then
+    elif [ "$http_status" -eq 401 ]; then
     echo "Error: Invalid GitHub token (Unauthorized - $http_status)." >&2
     return 1 # Indicate failure
-  else
+    else
     echo "Error: Could not verify token (HTTP Status: $http_status). Check network or token scope." >&2
     # Optionally log the body here for debugging
     return 1 # Indicate failure
-  fi
+fi
 }
 
 
@@ -897,7 +897,7 @@ if [[ $EUID -eq 0 ]]; then
 fi
 
 # Check if called with specific argument (e.g., for update check only)
-if [ "$1" == "check_updates" ]; then
+elif [ "$1" == "check_updates" ]; then
     # Need to know the target dir for check_updates
     # This mode might be less useful now without knowing the target dir beforehand
     echo "${Y}Warning: 'check_updates' argument requires manual directory navigation.${NC}"
@@ -910,9 +910,7 @@ if [ "$1" == "check_updates" ]; then
     # else
     #    echo "${R}Directory not found.${NC}"
     # fi
-
-
-
-# Ensure echo is on before final exit
-stty echo
-exit 0
+else
+    # Run the main installation process
+    main # <--- This call executes the main function
+fi
