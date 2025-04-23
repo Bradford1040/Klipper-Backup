@@ -857,9 +857,54 @@ install_cron() {
 # getUniqueid() { date +%s%N | md5sum | head -c 7; } # Simple unique ID
 # logo() { echo "--- Klipper Backup Installer ---"; } # Simple logo
 # ask_textinput() { local prompt="$1"; local default="$2"; local response; read -p "$prompt [$default]: " response < /dev/tty; echo "${response:-$default}"; } # Basic text input
-# ask_token() { local prompt="$1"; local token; echo -n "$prompt: "; stty -echo; read token < /dev/tty; stty echo; echo; echo "$token"; } # Basic password/token input
-# check_ghToken() { echo "dummy_user"; } # Dummy token check - REPLACE with actual logic if needed
-# menu() { return 0; } # Dummy menu function - assumes it handles its own UI/cursor
+
+
+# Function to check GitHub Token validity using the API
+check_ghToken() {
+  local token="$1"
+  local api_user_info
+  local http_status
+  local username
+
+  # Basic check if empty
+  if [ -z "$token" ]; then
+    echo "Error: Token cannot be empty." >&2 # Output errors to stderr
+    return 1 # Indicate failure
+  fi
+
+  # Attempt to use the token with the GitHub API to get user info
+  # -sS: Silent mode but show errors
+  # -w "%{http_code}": Output HTTP status code
+  # -o >(cat): Capture body output to variable (requires bash >= 4)
+  # Use temporary file for body if >(cat) is not desired/compatible
+  api_user_info=$(curl -sS -H "Authorization: token $token" https://api.github.com/user -o >(cat) -w "\n%{http_code}")
+
+  # Extract HTTP status code (last line of output)
+  http_status=$(echo "$api_user_info" | tail -n1)
+  # Extract body (all lines except the last)
+  local body=$(echo "$api_user_info" | sed '$d') # sed '$d' deletes the last line
+
+  if [ "$http_status" -eq 200 ]; then
+    # Attempt to extract username using jq
+    username=$(echo "$body" | jq -r '.login // empty')
+    if [[ -n "$username" ]]; then
+        echo "$username" # Return username on success
+        return 0 # Indicate success
+    else
+        echo "Error: Could not parse username from GitHub API response." >&2
+        # Optionally log the body here for debugging, be careful with sensitive info
+        return 1 # Indicate failure (parsing error)
+    fi
+  elif [ "$http_status" -eq 401 ]; then
+    echo "Error: Invalid GitHub token (Unauthorized - $http_status)." >&2
+    return 1 # Indicate failure
+  else
+    echo "Error: Could not verify token (HTTP Status: $http_status). Check network or token scope." >&2
+    # Optionally log the body here for debugging
+    return 1 # Indicate failure
+  fi
+}
+
 
 
 # --- Script Entry Point ---
