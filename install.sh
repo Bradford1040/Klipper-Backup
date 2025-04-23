@@ -27,13 +27,24 @@ fi
 # --- Global Variables ---
 # define KLIPPER_DATA_DIR
 KLIPPER_DATA_DIR="" # Custom folder name whe using KIAUH to install multiple printers
-KLIPPER_BACKUP_INSTALL_DIR="" # Full path to where klipper-backup will be installed
-KLIPPER_CONFIG_DIR="" # Full path to the printer config directory (e.g., .../printer_data/config)
-ENV_FILE_PATH="" # Full path to the .env file
+
 
 # --- Ensure stty echo is enabled on exit (fallback) ---
 # This trap runs on normal exit (0) or error exit (non-zero)
 trap 'stty echo' EXIT
+
+# --- Function Definitions ---
+dependencies() { ... }
+install_repo() { ... }
+check_updates() { ... } # Called by install_repo
+configure() { ... }
+patch_klipper_backup_update_manager() { ... }
+install_shell_command_config() { ... }
+install_inotify_from_source() { ... } # Helper for filewatch
+install_filewatch_service() { ... } # MOVED EARLIER
+install_backup_service() { ... }    # MOVED EARLIER
+install_cron() { ... }              # MOVED EARLIER
+
 
 # --- Main Installation Function ---
 main() {
@@ -52,7 +63,6 @@ main() {
     while true; do
         # Using read -p for better compatibility if utils.func isn't sourced yet or ask_textinput isn't ideal here
         read -p "Enter Klipper data directory name: " KLIPPER_DATA_DIR < /dev/tty # Read directly from terminal
-
         if [[ -z "$KLIPPER_DATA_DIR" ]]; then
             echo "${R}Error: Directory name cannot be empty.${NC}"
         elif [[ ! -d "$HOME/$KLIPPER_DATA_DIR" ]]; then
@@ -71,24 +81,30 @@ main() {
             sleep 1 # Give user a moment to read
             break # Exit loop, input is valid
         fi
-    done
+    done # <<< THIS 'done' MARKS THE END OF THE LOOP
 
     # --- Proceed with Installation Steps ---
-    dependencies # Check dependencies first
-    install_repo # Install/Update Klipper-Backup into the chosen dir
-    configure # Configure the .env file in the chosen dir
-    patch_klipper_backup_update_manager # Patch moonraker.conf in the chosen dir
-    install_filewatch_service # Install service pointing to the chosen dir
-    install_backup_service # Install service pointing to the chosen dir
-    install_cron # Install cron job pointing to the chosen dir
+    dependencies
+    install_repo
+    configure
+    install_shell_command_config
+    patch_klipper_backup_update_manager
+    install_filewatch_service
+    install_backup_service
+    install_cron
+    # <<< END OF FINAL MESSAGES
 
+    # --- FINAL SUCCESS MESSAGES --- <<< THESE LINES PRINT AT THE END
     echo -e "\n${G}● Installation Complete!${NC}"
     echo -e "  Klipper-Backup installed in: ${C}$KLIPPER_BACKUP_INSTALL_DIR${NC}"
-    echo -e "  ${Y}IMPORTANT:${NC} Please verify the ${C}backupPaths${NC} setting in ${C}$ENV_FILE_PATH${NC}"
-    echo -e "  It should list paths relative to ${C}$HOME${NC} that you want to back up."
-    echo -e "  Example: backupPaths=( \"$KLIPPER_DATA_DIR/config/*\" \"$KLIPPER_DATA_DIR/klipper_logs/*\" )"
-    echo -e "\n  For help or further information, read the docs: https://klipperbackup.xyz"
-}
+    echo -e "  Configuration file (.env): ${C}$ENV_FILE_PATH${NC}"
+    echo -e "${Y}Please review the .env file, especially 'backupPaths' and 'exclude'.${NC}"
+    echo -e "${Y}If you added the shell command, edit '$KLIPPER_CONFIG_DIR/shell_command.cfg' to replace placeholders.${NC}"
+    echo -e "${Y}Remember to configure your GitHub repository secrets if needed for private repos.${NC}"
+    # <<< END OF FINAL MESSAGES
+
+} # <<< THIS IS THE END OF THE main() FUNCTION
+
 
 # --- Dependency Check ---
 dependencies() {
@@ -531,38 +547,7 @@ install_shell_command_config() {
 }
 
 
-# --- Main script execution ---
-
-# ... (Initial checks, path determination, dependency checks) ...
-
-# Prompt for Klipper data directory and set paths (KLIPPER_DATA_DIR, KLIPPER_CONFIG_DIR, KLIPPER_BACKUP_INSTALL_DIR etc.)
-# ... (This part MUST run before install_shell_command_config) ...
-
-# Install/Update the repository
-install_repo
-
-# Configure the .env file
-configure
-
-# <<<=== CALL THE NEW FUNCTION HERE ===>>>
-install_shell_command_config
-
-# Patch Moonraker update manager
-patch_klipper_backup_update_manager
-
-# Install services/cron
-install_filewatch_service
-install_backup_service
-install_cron
-
-# ... (Final success messages) ...
-
-exit 0
-
-
-# --- Install Filewatch Service ---
 # Includes improved inotify-tools installation/compilation logic
-
 # Helper function for compiling inotify-tools (kept from previous context)
 install_inotify_from_source() {
     echo -e "\n${Y}● Compiling latest version of inotify-tools from source (This may take a few minutes)${NC}"
@@ -655,6 +640,7 @@ install_filewatch_service() {
         fi
 
         # --- Install the service ---
+        install_backup_service
         echo "${Y}● Installing Klipper-Backup filewatch service...${NC}"
         loading_wheel "   ${Y}Installing service...${NC}" & local loading_pid=$!
 
@@ -844,7 +830,15 @@ install_cron() {
 # getUniqueid() { date +%s%N | md5sum | head -c 7; } # Simple unique ID
 # logo() { echo "--- Klipper Backup Installer ---"; } # Simple logo
 # ask_textinput() { local prompt="$1"; local default="$2"; local response; read -p "$prompt [$default]: " response < /dev/tty; echo "${response:-$default}"; } # Basic text input
+# --- Dummy/Placeholder functions ---
+# ... (Keep these if needed, or ensure they are in utils.func) ...
+# ... (check_ghToken definition might be here or moved earlier) ...
 
+
+
+
+stty echo
+exit 0
 
 # Function to check GitHub Token validity using the API
 check_ghToken() {
@@ -916,10 +910,8 @@ if [ "$1" == "check_updates" ]; then
     # else
     #    echo "${R}Directory not found.${NC}"
     # fi
-else
-    # Run the main installation process
-    main
-fi
+
+
 
 # Ensure echo is on before final exit
 stty echo
