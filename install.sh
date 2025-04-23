@@ -835,11 +835,6 @@ install_cron() {
 # ... (check_ghToken definition might be here or moved earlier) ...
 
 
-
-
-stty echo
-exit 0
-
 # Function to check GitHub Token validity using the API
 check_ghToken() {
 local token="$1"
@@ -894,7 +889,6 @@ if [[ $EUID -eq 0 ]]; then
    echo "${R}Warning: Running this script as root is not recommended.${NC}"
    echo "${Y}Please run as a regular user with sudo privileges.${NC}"
    # Optionally exit: exit 1
-fi
 
 # Check if called with specific argument (e.g., for update check only)
 elif [ "$1" == "check_updates" ]; then
@@ -913,4 +907,5 @@ elif [ "$1" == "check_updates" ]; then
 else
     # Run the main installation process
     main # <--- This call executes the main function
+
 fi
