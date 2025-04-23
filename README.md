@@ -70,28 +70,28 @@ Download KLIPPER-BACKUP:
    cd ~
 ```
 
-* Clone the repository, this is a the KIAUH_V1 branch example that you must edit, include your <custom_name>
+* Clone the repository, this is a the KIAUH_V1 branch that you must edit,
 * (download it using git):
 
 ```shell
-  git clone -b KIAUH_V1 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/<custom_name>_data/klipper-backup
+  git clone -b KIAUH_V1 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/klipper-backup
 ```
 
 * Go into the newly downloaded custom directory:
 
 ```shell
-  cd ~/<custom_name>_data/klipper-backup
+  cd ~/klipper-backup
 ```
 
 inside. This file tells the backup script what to back up and where to find it. You'll likely need to set:
 The path to your `.env` configuration  (e.g., /home/<user_name>/klipper-backup or /home/<user_name>/printer_data/klipper-backup/ or
-/home/<user_name>/<custom_name>_data/klipper-backup/).
+/home/<user_name>/<custom_name>_data/klipper-backup/). The klipper-backup install directory, where the files that are to be backed up are located
 
 * Open this `shell_command.cfg`  in mainsail or fluidd to edit:
 
 * To execute the main backup script manually. edit the `shell_command.cfg` file:
 
-## Example of shell_command.cfg
+## Example of shell_command.cfg (remember when editing to remove <> as well)
 
 ```shell
 [gcode_shell_command update_git_script]
@@ -108,9 +108,9 @@ gcode:
   RUN_SHELL_COMMAND CMD=update_git_script
 ```
 
-## Before we install we need to edit some files within `~/klipper-backup` directory, using a tool like nano or Notepad++
+## Before we install we need to edit some files within `~/klipper-backup` directory, using a tool like (nano or Notepad++)
 
-* open install.sh and you should find `--- Global Variables ---` this is where we tell klipper-backup to install!
+* open `install.sh` and you should find `--- Global Variables ---` this is where we tell klipper-backup to install!
 
 ## We should be ready to install
 

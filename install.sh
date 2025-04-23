@@ -26,9 +26,9 @@ fi
 # Must edit before you run ./install.sh
 # --- Global Variables ---
 # define KLIPPER_DATA_DIR
-KLIPPER_DATA_DIR=""
+KLIPPER_DATA_DIR="" # Custom folder name whe using KIAUH to install multiple printers
 KLIPPER_BACKUP_INSTALL_DIR="" # Full path to where klipper-backup will be installed
-KLIPPER_CONFIG_DIR="" # Full path to the klipper config directory (e.g., .../printer_data/config)
+KLIPPER_CONFIG_DIR="" # Full path to the printer config directory (e.g., .../printer_data/config)
 ENV_FILE_PATH="" # Full path to the .env file
 
 # --- Ensure stty echo is enabled on exit (fallback) ---
@@ -488,6 +488,89 @@ patch_klipper_backup_update_manager() {
         echo -e "${M}●${NC} Adding Klipper-Backup to update manager ${M}skipped!${NC}\n"
     fi
 }
+
+#!/bin/bash
+
+
+# Function to handle shell_command.cfg setup
+install_shell_command_config() {
+  local source_example="$parent_path/shell_command.cfg.example"
+  local target_cfg="$KLIPPER_CONFIG_DIR/shell_command.cfg" # e.g., /home/pi/printer_data/config/shell_command.cfg
+  local target_dir="$KLIPPER_CONFIG_DIR"                  # e.g., /home/pi/printer_data/config
+
+  # Ensure the source example file exists
+  if [ ! -f "$source_example" ]; then
+    echo "Warning: Source file '$source_example' not found. Skipping shell_command.cfg setup."
+    return
+  fi
+
+  # Ensure the target config directory exists
+  if [ ! -d "$target_dir" ]; then
+    # This shouldn't happen if Klipper is installed correctly and paths were set, but good to check.
+    echo "Error: Klipper config directory '$target_dir' not found!"
+    echo "Cannot proceed with shell_command.cfg setup."
+    return
+  fi
+
+  echo ">>> Processing Klipper shell_command configuration..."
+
+  if [ ! -f "$target_cfg" ]; then
+    # Target file does NOT exist - Copy the example file
+    echo "  'shell_command.cfg' not found in '$target_dir'."
+    echo "  Copying example file to '$target_cfg'..."
+    cp "$source_example" "$target_cfg"
+    # Add a reminder for the user
+    echo "  IMPORTANT: You MUST edit the new '$target_cfg' to replace <user_name> and <custom_name> with your actual values."
+    echo "  The correct path for the command should be: bash $KLIPPER_BACKUP_INSTALL_DIR/script.sh"
+  else
+    # Target file DOES exist - Append if the command isn't already present
+    echo "  Found existing 'shell_command.cfg' in '$target_dir'."
+    # Check if our specific command section already exists
+    if ! grep -q "\[gcode_shell_command update_git_script\]" "$target_cfg"; then
+      echo "  Appending Klipper-Backup command section from example..."
+      # Add a newline for separation, then a comment, then the content
+      echo "" >> "$target_cfg" # Add a blank line separator
+      echo "# --- Content added by Klipper-Backup installer ---" >> "$target_cfg"
+      cat "$source_example" >> "$target_cfg"
+      echo "  IMPORTANT: Review the appended section in '$target_cfg'. You MUST edit it to replace <user_name> and <custom_name> with your actual values."
+      echo "  The correct path for the command should be: bash $KLIPPER_BACKUP_INSTALL_DIR/script.sh"
+    else
+      echo "  '[gcode_shell_command update_git_script]' section already found in '$target_cfg'."
+      echo "  Skipping append. Please ensure the existing command points to the correct script:"
+      echo "  command: bash $KLIPPER_BACKUP_INSTALL_DIR/script.sh"
+    fi
+  fi
+  echo ">>> Finished processing Klipper shell_command configuration."
+}
+
+
+# --- Main script execution ---
+
+# ... (Initial checks, path determination, dependency checks) ...
+
+# Prompt for Klipper data directory and set paths (KLIPPER_DATA_DIR, KLIPPER_CONFIG_DIR, KLIPPER_BACKUP_INSTALL_DIR etc.)
+# ... (This part MUST run before install_shell_command_config) ...
+
+# Install/Update the repository
+install_repo
+
+# Configure the .env file
+configure
+
+# <<<=== CALL THE NEW FUNCTION HERE ===>>>
+install_shell_command_config
+
+# Patch Moonraker update manager
+patch_klipper_backup_update_manager
+
+# Install services/cron
+install_filewatch_service
+install_backup_service
+install_cron
+
+# ... (Final success messages) ...
+
+exit 0
 
 
 # --- Install Filewatch Service ---

@@ -1,0 +1,4 @@
+[gcode_shell_command update_git_script]
+command: bash /home/<user_name>/<custom_name>_data/klipper-backup/script.sh # remember to remove <> when setting names
+timeout: 90.0
+verbose: True
