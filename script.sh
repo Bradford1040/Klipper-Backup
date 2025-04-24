@@ -64,35 +64,35 @@ args="$@"
 
 # Check parameters
 while [[ $# -gt 0 ]]; do
-  case "$1" in
+case "$1" in
     -h|--help)
-      show_help
-      exit 0
-      ;;
+    show_help
+    exit 0
+    ;;
     -f|--fix)
-      fix
-      shift
-      ;;
+    fix
+    shift
+    ;;
     -c|--commit_message)
-      if  [[ -z "$2" || "$2" =~ ^- ]]; then
-          echo -e "\r\033[K${R}Error: commit message expected after $1${NC}" >&2
-          exit 1
-      else
-          commit_message="$2"
-          commit_message_used=true
-          shift 2
-      fi
-      ;;
+    if  [[ -z "$2" || "$2" =~ ^- ]]; then
+        echo -e "\r\033[K${R}Error: commit message expected after $1${NC}" >&2
+        exit 1
+    else
+        commit_message="$2"
+        commit_message_used=true
+        shift 2
+    fi
+    ;;
     -d|--debug)
-      debug_output=true
-      shift
-      ;;
+    debug_output=true
+    shift
+    ;;
     *)
-      echo -e "\r\033[K${R}Unknown option: $1${NC}"
-      show_help
-      exit 1
-      ;;
-  esac
+    echo -e "\r\033[K${R}Unknown option: $1${NC}"
+    show_help
+    exit 1
+    ;;
+esac
 done
 
 # Check for updates
