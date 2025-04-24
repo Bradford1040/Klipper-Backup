@@ -34,16 +34,16 @@ KLIPPER_DATA_DIR="" # Custom folder name whe using KIAUH to install multiple pri
 trap 'stty echo' EXIT
 
 # --- Function Definitions ---
-dependencies() { ... }
-install_repo() { ... }
-check_updates() { ... } # Called by install_repo
-configure() { ... }
-patch_klipper_backup_update_manager() { ... }
-install_shell_command_config() { ... }
-install_inotify_from_source() { ... } # Helper for filewatch
-install_filewatch_service() { ... } # MOVED EARLIER
-install_backup_service() { ... }    # MOVED EARLIER
-install_cron() { ... }              # MOVED EARLIER
+dependencies() { :; }
+install_repo() { :; }
+check_updates() { :; } # Called by install_repo
+configure() { :; }
+patch_klipper_backup_update_manager() { :; }
+install_shell_command_config() { :; }
+install_inotify_from_source() { :; } # Helper for filewatch
+install_filewatch_service() { :; } 
+install_backup_service() { :; }    
+install_cron() { :; }              
 
 
 # --- Main Installation Function ---
