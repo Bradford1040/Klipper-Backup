@@ -209,7 +209,8 @@ check_updates() {
 
     local local_hash
     local_hash=$(git rev-parse HEAD)
-    local remote_hash=$(git rev-parse origin/KIAUH_V2) # Check against the specific branch
+    local remote_hash
+    remote_hash=$(git rev-parse origin/KIAUH_V2) # Check against the specific branch
 
     if [ "$local_hash" = "$remote_hash" ]; then
         echo -e "${G}●${NC} Klipper-Backup ${G}is up to date.${NC}\n"
@@ -530,9 +531,11 @@ install_shell_command_config() {
     if ! grep -q "\[gcode_shell_command update_git_script\]" "$target_cfg"; then
       echo "  Appending Klipper-Backup command section from example..."
       # Add a newline for separation, then a comment, then the content
+    {
       echo "" >> "$target_cfg" # Add a blank line separator
-      echo "# --- Content added by Klipper-Backup installer ---" >> "$target_cfg"
-      cat "$source_example" >> "$target_cfg"
+      echo "# --- Content added by Klipper-Backup installer ---"
+      cat "$source_example"
+    } >> "$target_cfg"
       echo "  IMPORTANT: Review the appended section in '$target_cfg'. You MUST edit it to replace <user_name> and <custom_name> with your actual values."
       echo "  The correct path for the command should be: bash $KLIPPER_BACKUP_INSTALL_DIR/script.sh"
     else
