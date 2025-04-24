@@ -61,8 +61,8 @@ main() {
     echo "Examples: printer_data, voron_data, punisher_data"
     echo ""
     while true; do
-        # Using read -p for better compatibility if utils.func isn't sourced yet or ask_textinput isn't ideal here
-        read -p "Enter Klipper data directory name: " KLIPPER_DATA_DIR < /dev/tty # Read directly from terminal
+        # Using read -r -p for better compatibility if utils.func isn't sourced yet or ask_textinput isn't ideal here
+        read -r -p "Enter Klipper data directory name: " KLIPPER_DATA_DIR < /dev/tty # Read directly from terminal
         if [[ -z "$KLIPPER_DATA_DIR" ]]; then
             echo "${R}Error: Directory name cannot be empty.${NC}"
         elif [[ ! -d "$HOME/$KLIPPER_DATA_DIR" ]]; then
@@ -207,7 +207,8 @@ check_updates() {
     # Fetch latest changes from remote without merging
     git fetch origin KIAUH_V2 > /dev/null 2>&1
 
-    local local_hash=$(git rev-parse HEAD)
+    local local_hash
+    local_hash=$(git rev-parse HEAD)
     local remote_hash=$(git rev-parse origin/KIAUH_V2) # Check against the specific branch
 
     if [ "$local_hash" = "$remote_hash" ]; then
@@ -331,7 +332,6 @@ configure() {
             fi
         }
         getRepo() {
-            pos2=$(getcursor)
             local ghrepo=$(ask_textinput "Enter your repository name")
 
             menu
@@ -551,7 +551,7 @@ install_inotify_from_source() {
     echo -e "\n${Y}● Compiling latest version of inotify-tools from source (This may take a few minutes)${NC}"
     local build_deps="autoconf autotools-dev automake libtool build-essential git"
     echo "${Y}● Checking/installing build dependencies ($build_deps)...${NC}"
-    if ! sudo apt-get update -qq || ! sudo apt-get install -y $build_deps; then
+    if ! sudo apt-get update -qq || ! sudo apt-get install -y "$build_deps"; then
          echo -e "${R}● Failed to install build dependencies via apt-get. Cannot proceed with compilation.${NC}"
          return 1
     fi
