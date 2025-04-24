@@ -302,8 +302,10 @@ configure() {
         getToken() {
             echo -e "\nSee: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
             echo -e "(Ensure token has 'repo' scope for private repos, or 'public_repo' for public ones)"
-            local ghtoken=$(ask_token "Enter your GitHub token")
-            local result=$(check_ghToken "$ghtoken") # Check Github Token
+            local ghtoken
+            ghtoken=$(ask_token "Enter your GitHub token")
+            local result
+            result=$(check_ghToken "$ghtoken") # Check Github Token
 
             if [ "$result" != "" ]; then
                 # Use | as sed delimiter to avoid issues with / in token (though unlikely)
