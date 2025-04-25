@@ -62,19 +62,19 @@ like GitHub or GitLab. This provides an off-site backup, protecting you even if 
 You need access to the command line (terminal/SSH) of the computer running Klipper (usually a Raspberry Pi or PC/LapTop).
 You need git installed `sudo apt update && sudo apt install git`.
 You might need other tools like rsync `sudo apt install rsync`, but these are often pre-installed with the (install.sh).
-Download KLIPPER-BACKUP:
 
-* Navigate to your home directory (or wherever you want to store the tool):
+## Download KLIPPER-BACKUP
+
+* Navigate to your home directory
 
 ```shell
-   cd ~
+   cd ...
 ```
 
-* Clone the repository, this is a the KIAUH_V2 branch that you must edit,
-* (download it using git):
+* Clone the repository, this is a the `devel-v3.0` branch, (download it using `git clone`):
 
 ```shell
-  git clone -b KIAUH_V2 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/klipper-backup
+  git clone -b devel-v3.0 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/klipper-backup
 ```
 
 * Go into the newly downloaded custom directory:
@@ -109,8 +109,6 @@ gcode:
 ```
 
 ## Before we install we need to edit some files within `~/klipper-backup` directory, using a tool like (nano or Notepad++)
-
-* open `install.sh` and you should find `--- Global Variables ---` this is where we tell klipper-backup to install!
 
 ## We should be ready to install
 
