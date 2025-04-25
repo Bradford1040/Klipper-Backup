@@ -696,15 +696,14 @@ install_filewatch_service() {
 
         # Patch service file in /tmp
         # Escape paths for sed
-        local escaped_install_dir=$(sed 's/[&/\]/\\&/g' <<<"$KLIPPER_BACKUP_INSTALL_DIR")
-        local escaped_config_dir=$(sed 's/[&/\]/\\&/g' <<<"$KLIPPER_CONFIG_DIR")
-        local escaped_utils_dir=$(sed 's/[&/\]/\\&/g' <<<"$parent_path/utils") # Path to filewatch.sh
+        local escaped_install_dir=$(sed 's|[&/\]|\\&|g' <<<"$KLIPPER_BACKUP_INSTALL_DIR")
+        local escaped_config_dir=$(sed 's|[&/\]|\\&|g' <<<"$KLIPPER_CONFIG_DIR")
 
-        sed -i "s|WorkingDirectory=.*|WorkingDirectory=$escaped_install_dir|" "$tmp_service_file"
+        sed -i "s|^WorkingDirectory=.*|WorkingDirectory=$escaped_install_dir|" "$tmp_service_file"
         # Pass KLIPPER_CONFIG_DIR via Environment for filewatch.sh to use
         sed -i "s|Environment=KLIPPER_CONFIG_DIR=.*|Environment=KLIPPER_CONFIG_DIR=$escaped_config_dir|" "$tmp_service_file"
         # Ensure ExecStart points to filewatch.sh inside utils
-        sed -i "s|ExecStart=.*|ExecStart=/usr/bin/env bash $escaped_utils_dir/filewatch.sh|" "$tmp_service_file"
+        sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/env bash $escaped_install_dir/utils/filewatch.sh|" "$tmp_service_file"
         sed -i "s|^User=.*|User=${SUDO_USER:-$USER}|" "$tmp_service_file"
 
 
@@ -751,6 +750,7 @@ install_backup_service() {
     echo "Using on-boot service name: $service_name"
     # --- End of Added Section ---
 
+    local escaped_install_dir=$(sed 's|[&/\]|\\&|g' <<<"$KLIPPER_BACKUP_INSTALL_DIR")
     local service_file_path="/etc/systemd/system/${service_name}.service"
     local source_service_file="$parent_path/install-files/${base_service_name}.service" # Template always uses base name
     local tmp_service_file="/tmp/${service_name}.service"
@@ -775,8 +775,8 @@ install_backup_service() {
 
         # Patch service file in /tmp
         local escaped_install_dir=$(sed 's/[&/\]/\\&/g' <<<"$KLIPPER_BACKUP_INSTALL_DIR")
-        sed -i "s|WorkingDirectory=.*|WorkingDirectory=$escaped_install_dir|" "$tmp_service_file"
-        sed -i "s|ExecStart=.*|ExecStart=/usr/bin/env bash $escaped_install_dir/script.sh|" "$tmp_service_file"
+        sed -i "s|^WorkingDirectory=.*|WorkingDirectory=$escaped_install_dir|" "$tmp_service_file"
+        sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/env bash $escaped_install_dir/script.sh -c \"On-Boot Backup\"|" "$tmp_service_file"
         sed -i "s|^User=.*|User=${SUDO_USER:-$USER}|" "$tmp_service_file"
 
         # Copy patched file from /tmp to /etc/systemd/system
