@@ -27,7 +27,8 @@ fi
 # --- Global Variables ---
 # define KLIPPER_DATA_DIR
 KLIPPER_DATA_DIR="" # Custom folder name whe using KIAUH to install multiple printers
-
+# Make klipper_base_name global so service functions can access it
+declare klipper_base_name
 
 # --- Ensure stty echo is enabled on exit (fallback) ---
 # This trap runs on normal exit (0) or error exit (non-zero)
@@ -49,7 +50,7 @@ install_cron() { :; }
 # --- Main Installation Function ---
 main() {
     clear
-    sudo -v # Prompt for sudo password early if needed
+    sudo -v || { echo "${R}Error: sudo privileges required.${NC}"; exit 1; }
 
     # --- Get Klipper Data Directory from User ---
     logo # Show logo first for better presentation
@@ -83,14 +84,26 @@ main() {
         fi
     done # <<< THIS 'done' MARKS THE END OF THE LOOP
 
+    # --- Determine Klipper Data Directory ---
+    # ... (existing logic to get KLIPPER_DATA_DIR) ...
+    # Example: KLIPPER_DATA_DIR="punisher_data" or KLIPPER_DATA_DIR="printer_data"
+
+    # --- Derive Klipper Base Name --- ADD THIS SECTION ---
+    # Remove '_data' suffix if present. Handles default 'printer_data' -> 'printer'
+    # and custom 'punisher_data' -> 'punisher'.
+    # If '_data' is not present, it uses the original name.
+    klipper_base_name="${KLIPPER_DATA_DIR%_data}"
+    echo "Derived Klipper base name: $klipper_base_name" # Optional debug info
+    # --- End of Added Section ---
+
     # --- Proceed with Installation Steps ---
     dependencies
-    install_repo
+    install_repo # This also handles updates
     configure
     install_shell_command_config
-    patch_klipper_backup_update_manager
-    install_filewatch_service
-    install_backup_service
+    patch_klipper_backup_update_manager # Uses klipper_base_name internally now
+    install_filewatch_service # Will now use global klipper_base_name
+    install_backup_service # Will now use global klipper_base_name
     install_cron
     # <<< END OF FINAL MESSAGES
 
@@ -270,7 +283,7 @@ check_updates() {
             echo -e "${M}●${NC} Klipper-Backup update ${M}skipped!${NC}\n"
         fi
     fi
-     # Return to the original script directory
+    # Return to the original script directory
     cd "$parent_path" || echo "${Y}Warning: Could not return to script directory '$parent_path'.${NC}"
 }
 
@@ -624,183 +637,171 @@ install_inotify_from_source() {
     fi
 }
 
+# --- Install File Watch Service ---
 install_filewatch_service() {
+    local base_service_name="klipper-backup-filewatch"
+    local service_name # Will be set dynamically
 
-    local service_name="klipper-backup-filewatch"
-    local service_file="/etc/systemd/system/${service_name}.service"
-    local message
-
-    if service_exists $service_name; then
-        message="Reinstall the filewatch backup service? (triggers backup on config changes)"
+    # --- Determine Dynamic Service Name --- ADD THIS ---
+    # Only add suffix if base name is not 'printer' (default case)
+    # and if base name is different from data dir (i.e., _data was removed)
+    if [[ "$klipper_base_name" != "printer" && "$klipper_base_name" != "$KLIPPER_DATA_DIR" ]]; then
+        service_name="${base_service_name}-${klipper_base_name}"
     else
-        message="Install the filewatch backup service? (triggers backup on config changes)"
+        service_name="$base_service_name" # Use default name
+    fi
+    echo "Using filewatch service name: $service_name"
+    # --- End of Added Section ---
+
+    local service_file_path="/etc/systemd/system/${service_name}.service"
+    local source_service_file="$parent_path/install-files/${base_service_name}.service" # Template always uses base name
+    local tmp_service_file="/tmp/${service_name}.service"
+
+    # Check if service already exists (using dynamic name)
+    if systemctl is-enabled "$service_name" >/dev/null 2>&1 || [[ -f "$service_file_path" ]]; then
+        echo -e "${M}● Installing $service_name skipped! (already installed or file exists)${NC}\n"
+        return
     fi
 
-    if ask_yn "$message"; then
-
-
-        # --- Check/Install inotify-tools ---
-        local inotify_ok=false
-        echo "${Y}● Checking for required 'inotifywait' command...${NC}"
-        if command -v inotifywait &> /dev/null; then
-            echo -e "${G}✓ 'inotifywait' found.${NC}"; inotify_ok=true; sleep 0.5
-        else
-            echo -e "${R}✗ 'inotifywait' not found.${NC}"
-            echo "${Y}● Attempting to install 'inotify-tools' via package manager...${NC}"
-            sudo apt-get update -qq > /dev/null 2>&1 || echo "${Y}Warning: apt-get update failed, proceeding anyway.${NC}"
-            if sudo apt-get install -y inotify-tools; then
-                if command -v inotifywait &> /dev/null; then
-                    echo -e "${G}✓ Successfully installed 'inotify-tools' via package manager.${NC}"; inotify_ok=true
-                else
-                    echo -e "${R}✗ Package manager reported success, but 'inotifywait' command still not found.${NC}"
-                    echo "${Y}● Falling back to compiling from source.${NC}"
-                    if install_inotify_from_source; then inotify_ok=true; fi
-                fi
-            else
-                echo -e "${R}✗ Failed to install 'inotify-tools' via package manager.${NC}"
-                echo "${Y}● Falling back to compiling from source.${NC}"
-                if install_inotify_from_source; then inotify_ok=true; fi
-            fi
+    # Check dependency
+    if ! command -v inotifywait >/dev/null 2>&1; then
+        echo "${Y}inotifywait not found. Attempting to install inotify-tools...${NC}"
+        if ! sudo apt-get update -qq || ! sudo apt-get install -y inotify-tools; then
+            echo "${Y}Failed to install inotify-tools via apt. Attempting to compile from source...${NC}"
+            install_inotify_from_source || {
+                echo -e "${R}✗ Failed to install inotify-tools. Cannot install $service_name.${NC}\n"
+                return 1
+            }
         fi
-        # --- End of inotify-tools handling ---
+        # Verify again after install attempt
+        if ! command -v inotifywait >/dev/null 2>&1; then
+            echo -e "${R}✗ Failed to install inotify-tools even from source. Cannot install $service_name.${NC}\n"
+            return 1
+        fi
+        echo "${G}✓ inotify-tools installed successfully.${NC}"
+    fi
 
-        if ! $inotify_ok; then
-            echo -e "${R}✗ Failed to install or find required 'inotifywait'. Cannot install filewatch service.${NC}\n"
-            return 1 # Indicate failure
+
+    if ask_yn "Install Klipper-Backup File Watch Service ($service_name)?"; then
+        echo "${Y}●${NC} Installing $service_name..."
+        loading_wheel "   Preparing service file..." &
+        local loading_pid=$!
+
+        # Copy template to tmp
+        if ! cp "$source_service_file" "$tmp_service_file"; then
+            kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
+            echo -e "\r\033[K${R}✗ Error copying template service file.${NC}\n"
+            return 1
         fi
 
-        # --- Install the service ---
-        install_backup_service
-        echo "${Y}● Installing Klipper-Backup filewatch service...${NC}"
-        loading_wheel "   ${Y}Installing service...${NC}" & local loading_pid=$!
+        # Patch service file in /tmp
+        # Escape paths for sed
+        local escaped_install_dir=$(sed 's/[&/\]/\\&/g' <<<"$KLIPPER_BACKUP_INSTALL_DIR")
+        local escaped_config_dir=$(sed 's/[&/\]/\\&/g' <<<"$KLIPPER_CONFIG_DIR")
+        local escaped_utils_dir=$(sed 's/[&/\]/\\&/g' <<<"$parent_path/utils") # Path to filewatch.sh
 
-        local install_success=false
-        # Use subshell with error checking for installation steps
-        if (
-            set -e # Exit subshell on error
-            echo "Stopping existing service (if any)..." >&2
-            sudo systemctl stop "$service_name.service" >/dev/null 2>&1 || true
-            echo "Copying service file..." >&2
-            sudo cp "$parent_path/install-files/$service_name.service" "$service_file"
-            echo "Patching service file..." >&2
-            # Use | as delimiter for sed, safer for paths
-            sudo sed -i "s|^After=.*|After=$(wantsafter)|" "$service_file" # Assuming wantsafter() is defined
-            sudo sed -i "s|^Wants=.*|Wants=$(wantsafter)|" "$service_file"
-            sudo sed -i "s|^User=.*|User=${SUDO_USER:-$USER}|" "$service_file"
-            # --- CRITICAL: Update ExecStart path ---
-            sudo sed -i "s|ExecStart=.*|ExecStart=$KLIPPER_BACKUP_INSTALL_DIR/utils/filewatch.sh|" "$service_file"
-            # --- CRITICAL: Update WorkingDirectory path ---
-            sudo sed -i "s|WorkingDirectory=.*|WorkingDirectory=$KLIPPER_BACKUP_INSTALL_DIR|" "$service_file"
-            # --- CRITICAL: Update Environment variable for config path ---
-            # Add or modify Environment line to pass the config dir path
-            if grep -q '^Environment=' "$service_file"; then
-                # Append if line exists but doesn't contain our var
-                if ! grep -q 'KLIPPER_CONFIG_DIR=' "$service_file"; then
-                    sudo sed -i '/^Environment=/ s/"$/ KLIPPER_CONFIG_DIR='"$KLIPPER_CONFIG_DIR"'"/' "$service_file"
-                else
-                    # Replace if var already exists (e.g., from previous install)
-                    sudo sed -i '/^Environment=/ s|KLIPPER_CONFIG_DIR=[^ "]*|KLIPPER_CONFIG_DIR='"$KLIPPER_CONFIG_DIR"'|' "$service_file"
-                fi
-            else
-                # Add Environment line if it doesn't exist (insert after [Service])
-                sudo sed -i '/\[Service\]/a Environment="KLIPPER_CONFIG_DIR='"$KLIPPER_CONFIG_DIR"'"' "$service_file"
-            fi
+        sed -i "s|WorkingDirectory=.*|WorkingDirectory=$escaped_install_dir|" "$tmp_service_file"
+        # Pass KLIPPER_CONFIG_DIR via Environment for filewatch.sh to use
+        sed -i "s|Environment=KLIPPER_CONFIG_DIR=.*|Environment=KLIPPER_CONFIG_DIR=$escaped_config_dir|" "$tmp_service_file"
+        # Ensure ExecStart points to filewatch.sh inside utils
+        sed -i "s|ExecStart=.*|ExecStart=/usr/bin/env bash $escaped_utils_dir/filewatch.sh|" "$tmp_service_file"
+        sed -i "s|^User=.*|User=${SUDO_USER:-$USER}|" "$tmp_service_file"
 
-            echo "Reloading systemd daemon..." >&2
+
+        # Copy patched file from /tmp to /etc/systemd/system
+        if sudo cp "$tmp_service_file" "$service_file_path"; then
             sudo systemctl daemon-reload
-            echo "Enabling service..." >&2
-            sudo systemctl enable "$service_name.service"
-            echo "Starting service..." >&2
-            sudo systemctl start "$service_name.service"
-            sleep 1 # Allow service to start/fail
-            echo "Checking service status..." >&2
-            sudo systemctl is-active --quiet "$service_name.service"
-        ); then
-            install_success=true
+            echo -e "\r\033[K   ${G}✓ Created $service_file_path${NC}"
+            echo -e "   ${Y}Enabling and starting $service_name...${NC}"
+            if sudo systemctl enable "$service_name" > /dev/null 2>&1 && sudo systemctl start "$service_name"; then
+                kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
+                echo -e "\r\033[K${G}●${NC} Installing $service_name ${G}Done!${NC}\n"
+            else
+                kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
+                echo -e "\r\033[K${R}✗ Failed to enable or start $service_name.${NC}\n"
+                echo -e "${Y}Check service status: systemctl status $service_name${NC}"
+                echo -e "${Y}Check service logs: journalctl -u $service_name${NC}"
+            fi
         else
-            install_success=false
-            echo -e "${R}✗ Service installation/start failed.${NC}" >&2
+            kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
+            echo -e "\r\033[K${R}✗ Failed to install $service_name (Error copying to /etc/systemd/system).${NC}\n"
+            echo -e "${Y}Check permissions and try again.${NC}"
         fi
-
-        kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
-
-        if $install_success; then
-            echo -e "\r\033[K${G}✓ Installing filewatch service Done!${NC}\n"
-        else
-            echo -e "\r\033[K${R}✗ Failed to install or start filewatch service.${NC}\n"
-            # Optional: show status for debugging
-            # echo "Service status:"
-            # sudo systemctl status "$service_name.service" --no-pager || true
-            return 1 # Indicate failure
-        fi
+        # Clean up tmp file
+        rm -f "$tmp_service_file"
     else
-
-        echo -e "\r\033[K${M}● Installing filewatch service skipped!${NC}\n"
+        echo -e "${M}●${NC} Installing $service_name ${M}skipped!${NC}\n"
     fi
-    return 0 # Indicate success or skipped
 }
 
 
-# --- Install On-Boot Backup Service ---
+# --- Install Backup Service (On Boot) ---
 install_backup_service() {
+    local base_service_name="klipper-backup-on-boot"
+    local service_name # Will be set dynamically
 
-    local service_name="klipper-backup-on-boot"
-    local service_file="/etc/systemd/system/${service_name}.service"
-    local message
-
-    # Check if service exists
-    if service_exists $service_name; then
-        message="Reinstall the on-boot backup service?"
+    # --- Determine Dynamic Service Name --- ADD THIS ---
+    # Only add suffix if base name is not 'printer' (default case)
+    # and if base name is different from data dir (i.e., _data was removed)
+    if [[ "$klipper_base_name" != "printer" && "$klipper_base_name" != "$KLIPPER_DATA_DIR" ]]; then
+        service_name="${base_service_name}-${klipper_base_name}"
     else
-        message="Install the on-boot backup service?"
+        service_name="$base_service_name" # Use default name
+    fi
+    echo "Using on-boot service name: $service_name"
+    # --- End of Added Section ---
+
+    local service_file_path="/etc/systemd/system/${service_name}.service"
+    local source_service_file="$parent_path/install-files/${base_service_name}.service" # Template always uses base name
+    local tmp_service_file="/tmp/${service_name}.service"
+
+    # Check if service already exists (using dynamic name)
+    if systemctl is-enabled "$service_name" >/dev/null 2>&1 || [[ -f "$service_file_path" ]]; then
+        echo -e "${M}● Installing $service_name skipped! (already installed or file exists)${NC}\n"
+        return
     fi
 
-    if ask_yn "$message"; then
+    if ask_yn "Install Klipper-Backup On-Boot Service ($service_name)?"; then
+        echo "${Y}●${NC} Installing $service_name..."
+        loading_wheel "   Preparing service file..." &
+        local loading_pid=$!
 
-
-        echo "${Y}●${NC} Installing on-boot service..."
-        loading_wheel "   ${Y}Installing service...${NC}" & local loading_pid=$!
-
-        local install_success=false
-        # Use subshell for installation steps
-        if (
-            set -e # Exit on error
-            sudo systemctl stop "$service_name.service" >/dev/null 2>&1 || true
-            sudo cp "$parent_path/install-files/$service_name.service" "$service_file"
-            # Use | as delimiter for sed
-            sudo sed -i "s|^After=.*|After=$(wantsafter)|" "$service_file"
-            sudo sed -i "s|^Wants=.*|Wants=$(wantsafter)|" "$service_file"
-            sudo sed -i "s|^User=.*|User=${SUDO_USER:-$USER}|" "$service_file"
-            # --- CRITICAL: Update ExecStart path ---
-            sudo sed -i "s|ExecStart=.*|ExecStart=$KLIPPER_BACKUP_INSTALL_DIR/script.sh -c \"On-Boot Backup\"|" "$service_file"
-            # --- CRITICAL: Update WorkingDirectory path ---
-            sudo sed -i "s|WorkingDirectory=.*|WorkingDirectory=$KLIPPER_BACKUP_INSTALL_DIR|" "$service_file"
-
-            sudo systemctl daemon-reload
-            sudo systemctl enable "$service_name.service"
-            # Don't start the on-boot service immediately, it runs on next boot
-            # sudo systemctl start "$service_name.service" # Removed this line
-            echo "Service enabled, will run on next boot." >&2
-        ); then
-            install_success=true
-        else
-            install_success=false
-            echo -e "${R}✗ Service installation/enable failed.${NC}" >&2
-        fi
-
-        kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
-
-        if $install_success; then
-            echo -e "\r\033[K${G}✓ Installing on-boot service Done!${NC}\n"
-        else
-            echo -e "\r\033[K${R}✗ Failed to install or enable on-boot service.${NC}\n"
+        # Copy template to tmp
+        if ! cp "$source_service_file" "$tmp_service_file"; then
+            kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
+            echo -e "\r\033[K${R}✗ Error copying template service file.${NC}\n"
             return 1
         fi
-    else
 
-        echo -e "\r\033[K${M}●${NC} Installing on-boot service ${M}skipped!${NC}\n"
+        # Patch service file in /tmp
+        local escaped_install_dir=$(sed 's/[&/\]/\\&/g' <<<"$KLIPPER_BACKUP_INSTALL_DIR")
+        sed -i "s|WorkingDirectory=.*|WorkingDirectory=$escaped_install_dir|" "$tmp_service_file"
+        sed -i "s|ExecStart=.*|ExecStart=/usr/bin/env bash $escaped_install_dir/script.sh|" "$tmp_service_file"
+        sed -i "s|^User=.*|User=${SUDO_USER:-$USER}|" "$tmp_service_file"
+
+        # Copy patched file from /tmp to /etc/systemd/system
+        if sudo cp "$tmp_service_file" "$service_file_path"; then
+            sudo systemctl daemon-reload
+            echo -e "\r\033[K   ${G}✓ Created $service_file_path${NC}"
+            echo -e "   ${Y}Enabling $service_name...${NC}"
+            if sudo systemctl enable "$service_name" > /dev/null 2>&1; then
+                kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
+                echo -e "\r\033[K${G}●${NC} Installing $service_name ${G}Done!${NC}\n"
+                echo -e "${M}Note: This service only runs once after booting.${NC}"
+            else
+                kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
+                echo -e "\r\033[K${R}✗ Failed to enable $service_name.${NC}\n"
+            fi
+        else
+            kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
+            echo -e "\r\033[K${R}✗ Failed to install $service_name (Error copying to /etc/systemd/system).${NC}\n"
+            echo -e "${Y}Check permissions and try again.${NC}"
+        fi
+        # Clean up tmp file
+        rm -f "$tmp_service_file"
+    else
+        echo -e "${M}●${NC} Installing $service_name ${M}skipped!${NC}\n"
     fi
-    return 0
 }
 
 # --- Install Cron Job ---
