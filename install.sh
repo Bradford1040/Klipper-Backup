@@ -807,46 +807,48 @@ install_backup_service() {
 # --- Install Cron Job ---
 install_cron() {
 
-    local cron_script_path="$KLIPPER_BACKUP_INSTALL_DIR/script.sh" # Use derived path
-    local cron_comment="# Klipper-Backup periodic backup" # Identify the cron job
+    # Define the dynamic comment FIRST, including the instance name
+    local cron_job_comment="# Klipper-Backup Cron (${klipper_base_name})"
 
-    # Check if cron daemon is installed/running
-    if ! command -v crontab &> /dev/null || ! pgrep -x cron > /dev/null; then
-        echo -e "${Y}● Cron service not detected or crontab command not found. Skipping cron task installation.${NC}\n"
-        return
+    # Check if a cron job with this SPECIFIC comment already exists
+    if crontab -l 2>/dev/null | grep -Fq "$cron_job_comment"; then
+        echo -e "${M}● Installing Cron Job for ${klipper_base_name} skipped! (comment found)${NC}\n"
+        return 0 # Not an error, just already done
     fi
 
-    # Check if the cron job already exists for this specific path
-    if crontab -l 2>/dev/null | grep -Fq "$cron_script_path"; then
-        echo -e "${M}● Installing cron task skipped! (already installed for this path)${NC}\n"
-        return
+    # Check if cron daemon is installed/running (only if not already found)
+    if ! command -v crontab &> /dev/null || ! pgrep -x cron > /dev/null; then
+        echo -e "${Y}● Cron service not detected or crontab command not found. Skipping cron task installation.${NC}\n"
+        return 1 # Indicate failure to install
     fi
 
     # Ask user
-    if ask_yn "Install cron task? (automatic backup every 4 hours)"; then
+    if ask_yn "Install cron task for ${klipper_base_name}? (automatic backup every 5 minutes)"; then # Updated frequency in prompt
 
-
-        echo "${Y}●${NC} Installing cron task..."
+        echo "${Y}●${NC} Installing Cron Job for ${klipper_base_name}..."
         loading_wheel "   Adding cron job..." & local loading_pid=$!
 
-        # Define the cron job entry
-        local cron_job="0 */4 * * * $cron_script_path -c \"Cron backup - \$(date +'\\%x - \\%X')\" $cron_comment"
+        # Define the cron job entry using the dynamic comment
+        # Ensure KLIPPER_BACKUP_INSTALL_DIR is correctly quoted
+        local cron_job="*/5 * * * * cd '$KLIPPER_BACKUP_INSTALL_DIR' && bash script.sh -c \"Cron Backup (${klipper_base_name})\" $cron_job_comment"
 
         # Add the job using crontab
+        # The check using the comment was already done above
         if (crontab -l 2>/dev/null; echo "$cron_job") | crontab -; then
             sleep .5
             kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
-            echo -e "\r\033[K${G}✓ Installing cron task Done!${NC}\n"
+            # Use \r\033[K to clear the loading wheel line before printing final status
+            echo -e "\r\033[K${G}● Installing Cron Job for ${klipper_base_name} ${G}Done!${NC}\n"
         else
+            # This case might be hard to reach if the crontab command itself fails
             kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
-            echo -e "\r\033[K${R}✗ Failed to install cron task.${NC}\n"
-            return 1
+            echo -e "\r\033[K${R}✗ Failed to add cron job for ${klipper_base_name}.${NC}\n"
+            return 1 # Indicate failure
         fi
     else
-
-        echo -e "${M}●${NC} Installing cron task ${M}skipped!${NC}\n"
+        echo -e "${M}●${NC} Installing Cron Job for ${klipper_base_name} ${M}skipped!${NC}\n"
     fi
-    return 0
+    return 0 # Indicate success or skipped
 }
 
 
