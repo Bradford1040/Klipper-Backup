@@ -281,10 +281,10 @@ fi
 # Untrack all files so that any new excluded files are correctly ignored and deleted from remote
 git rm -r --cached . >/dev/null 2>&1
 git add .
-git commit -m "$commit_message"
+git commit --no-gpg-sign -m "$commit_message"
 # Check if HEAD still matches remote (Means there are no updates to push) and create a empty commit just informing that there are no new updates to push
 if $allow_empty_commits && [[ $(git rev-parse HEAD) == $(git ls-remote $(git rev-parse --abbrev-ref @{u} 2>/dev/null | sed 's/\// /g') | cut -f1) ]]; then
-    git commit --allow-empty -m "$commit_message - No new changes pushed"
+    git commit --no-gpg-sign --allow-empty -m "$commit_message - No new changes pushed"
 fi
 git push -u origin "$branch_name"
 

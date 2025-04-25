@@ -433,22 +433,35 @@ patch_klipper_backup_update_manager() {
     local moonraker_service_name="moonraker" # Default, adjust if needed (e.g., moonraker-punisher)
 
     # --- Determine Moonraker Service Name (heuristic) ---
-    # Check common service names based on data dir, fallback to default
-    if systemctl list-units --full -all | grep -q "moonraker-${KLIPPER_DATA_DIR}.service"; then
-        moonraker_service_name="moonraker-${KLIPPER_DATA_DIR}"
+    # Derive the base name by removing '_data' suffix if present
+    # Example: "punisher_data" becomes "punisher", "printer_data" becomes "printer"
+    local klipper_base_name="${KLIPPER_DATA_DIR%_data}"
+
+    # Check for the specific service name first (e.g., moonraker-punisher.service)
+    # Only check if the base name isn't the default 'printer' (which usually uses 'moonraker.service')
+    if [[ "$klipper_base_name" != "printer" ]] && systemctl list-units --full -all | grep -q "moonraker-${klipper_base_name}.service"; then
+        moonraker_service_name="moonraker-${klipper_base_name}"
         echo "Detected Moonraker service: $moonraker_service_name"
+    # Then check for the default service name (e.g., moonraker.service)
     elif systemctl list-units --full -all | grep -q "moonraker.service"; then
-        moonraker_service_name="moonraker"
+        moonraker_service_name="moonraker" # Explicitly set back to default if found
         echo "Detected Moonraker service: $moonraker_service_name"
+    # Fallback if neither specific nor default is found
     else
-        echo "${Y}Warning: Could not automatically detect Moonraker service name. Assuming '$moonraker_service_name'.${NC}"
+        # Update warning message to show what was checked
+        echo "${Y}Warning: Could not automatically detect Moonraker service name.${NC}"
+        echo "${Y}         Checked for 'moonraker-${klipper_base_name}.service' (if applicable) and 'moonraker.service'.${NC}"
+        echo "${Y}         Assuming default '$moonraker_service_name'. You may need to adjust manually if patching fails.${NC}"
+        # Keep moonraker_service_name as the default "moonraker"
     fi
 
     # --- Check prerequisites ---
+    # ... (rest of the prerequisite checks remain the same) ...
     if [[ ! -d "$HOME/moonraker" ]]; then
         echo -e "${Y}● Moonraker source directory not found ($HOME/moonraker). Skipping update manager patch.${NC}\n"
         return
     fi
+    # Use the potentially updated moonraker_service_name here
     if ! systemctl is-active "$moonraker_service_name" >/dev/null 2>&1; then
         echo -e "${Y}● Moonraker service '$moonraker_service_name' is not active. Skipping update manager patch.${NC}\n"
         return
@@ -459,23 +472,24 @@ patch_klipper_backup_update_manager() {
     fi
 
     # --- Check if already patched ---
+    # ... (check remains the same) ...
     if grep -Eq "^\[update_manager klipper-backup\]\s*$" "$moonraker_conf_path"; then
         echo -e "${M}● Adding Klipper-Backup to update manager skipped! (already added)${NC}\n"
         return
     fi
 
     # --- Ask user ---
+    # ... (ask_yn remains the same) ...
     if ask_yn "Add Klipper-Backup to Moonraker update manager?"; then
-
 
         echo "${Y}●${NC} Adding Klipper-Backup to update manager..."
         loading_wheel "   Patching $moonraker_conf_path..." &
         local loading_pid=$!
 
-        # Ensure newline at EOF
+        # ... (Ensure newline at EOF remains the same) ...
         [[ $(tail -c1 "$moonraker_conf_path" | wc -l) -eq 0 ]] && echo "" | sudo tee -a "$moonraker_conf_path" > /dev/null
 
-        # Prepare the patch content, replacing placeholder with actual path
+        # ... (Prepare patch content remains the same) ...
         local patch_content
         if ! patch_content=$(sed "s|path = ~/klipper-backup|path = $KLIPPER_BACKUP_INSTALL_DIR|" "$parent_path/install-files/moonraker.conf"); then
             kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
@@ -483,9 +497,10 @@ patch_klipper_backup_update_manager() {
             return 1
         fi
 
-        # Append the patch using tee with sudo
+        # ... (Append patch remains the same) ...
         if echo "$patch_content" | sudo tee -a "$moonraker_conf_path" > /dev/null; then
             echo -e "\r\033[K   ${G}✓ Patched $moonraker_conf_path${NC}"
+            # Use the potentially updated moonraker_service_name here
             echo -e "   ${Y}Restarting Moonraker service ($moonraker_service_name)...${NC}"
             if sudo systemctl restart "$moonraker_service_name.service"; then
                 kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
@@ -496,12 +511,13 @@ patch_klipper_backup_update_manager() {
                 echo -e "${Y}Please restart it manually: sudo systemctl restart $moonraker_service_name.service${NC}"
             fi
         else
+            # ... (Error handling for patching remains the same) ...
             kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
             echo -e "\r\033[K${R}✗ Failed to add Klipper-Backup to update manager (Error writing to $moonraker_conf_path).${NC}\n"
             echo -e "${Y}Check permissions and try again.${NC}"
         fi
     else
-
+        # ... (Skipped message remains the same) ...
         echo -e "${M}●${NC} Adding Klipper-Backup to update manager ${M}skipped!${NC}\n"
     fi
 }
