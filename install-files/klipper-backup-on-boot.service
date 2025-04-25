@@ -1,7 +1,10 @@
 [Unit]
 Description=Klipper Backup On-boot Service
-After=
-Wants=
+#After=NetworkManager-wait-online.service
+#Wants=NetworkManager-wait-online.service
+#Uncomment below lines if not using network manager
+#After=network-online.target
+#Wants=network-online.target
 
 [Service]
 User=
