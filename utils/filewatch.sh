@@ -3,10 +3,10 @@
 # Determine script's own directory to find the correct .env
 parent_path=$(cd "$(dirname "${BASH_SOURCE[0]}")"; cd ..; pwd -P) # Go up one level from utils
 if [[ -f "$parent_path/.env" ]]; then
-  source "$parent_path/.env"
+source "$parent_path/.env"
 else
-  echo "Error: Could not find .env file at $parent_path/.env" >&2
-  exit 1
+echo "Error: Could not find .env file at $parent_path/.env" >&2
+exit 1
 fi
 
 # Check if backupPaths is actually an array after sourcing
@@ -27,7 +27,6 @@ for path in "${backupPaths[@]}"; do
         echo "    Warning: Pattern '$HOME/$path' matched no files or directories." # Debugging info
         continue
     fi
-
     for file_or_dir in $expanded_paths; do
         # Check if expansion yielded existing files/dirs
         if [[ -e "$file_or_dir" ]]; then
@@ -40,7 +39,7 @@ for path in "${backupPaths[@]}"; do
                 watchlist+=" $watch_dir"
                 echo "    Watching directory: $watch_dir" # Debugging info
             else
-                 echo "    Skipping symlink: $file_or_dir" # Debugging info
+                echo "    Skipping symlink: $file_or_dir" # Debugging info
             fi
         fi
     done
@@ -49,13 +48,11 @@ done
 # Make watchlist unique directories and handle potential leading/trailing spaces
 watchlist=$(echo "$watchlist" | tr ' ' '\n' | grep -v '^\s*$' | sort -u | tr '\n' ' ')
 echo "Final watchlist: $watchlist" # Debugging info
-
 if [[ -z "$watchlist" ]]; then
     echo "Error: Watchlist is empty. No valid directories found to monitor." >&2
     exit 1
 fi
 # --- End of watchlist building ---
-
 
 exclude_pattern=".swp|.tmp|printer-[0-9]*_[0-9]*.cfg|.bak|.bkp"
 

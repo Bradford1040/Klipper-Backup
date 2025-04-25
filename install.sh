@@ -51,7 +51,6 @@ install_cron() { :; }
 main() {
     clear
     sudo -v || { echo "${R}Error: sudo privileges required.${NC}"; exit 1; }
-
     # --- Get Klipper Data Directory from User ---
     logo # Show logo first for better presentation
     echo "-----------------------------------------------------"
@@ -83,19 +82,15 @@ main() {
             break # Exit loop, input is valid
         fi
     done # <<< THIS 'done' MARKS THE END OF THE LOOP
-
     # --- Determine Klipper Data Directory ---
     # ... (existing logic to get KLIPPER_DATA_DIR) ...
     # Example: KLIPPER_DATA_DIR="punisher_data" or KLIPPER_DATA_DIR="printer_data"
-
     # --- Derive Klipper Base Name --- ADD THIS SECTION ---
     # Remove '_data' suffix if present. Handles default 'printer_data' -> 'printer'
     # and custom 'punisher_data' -> 'punisher'.
     # If '_data' is not present, it uses the original name.
     klipper_base_name="${KLIPPER_DATA_DIR%_data}"
     echo "Derived Klipper base name: $klipper_base_name" # Optional debug info
-    # --- End of Added Section ---
-
     # --- Proceed with Installation Steps ---
     dependencies
     install_repo # This also handles updates
@@ -106,8 +101,6 @@ main() {
     install_backup_service # Will now use global klipper_base_name
     install_cron
     # <<< END OF FINAL MESSAGES
-
-    # --- FINAL SUCCESS MESSAGES --- <<< THESE LINES PRINT AT THE END
     echo -e "\n${G}● Installation Complete!${NC}"
     echo -e "  Klipper-Backup installed in: ${C}$KLIPPER_BACKUP_INSTALL_DIR${NC}"
     echo -e "  Configuration file (.env): ${C}$ENV_FILE_PATH${NC}"
@@ -146,17 +139,13 @@ dependencies() {
 
 # --- Install/Update Klipper-Backup Repository ---
 install_repo() {
-
     if ask_yn "Do you want to proceed with Klipper-Backup installation/update?"; then
-
-
         # Navigate to the chosen Klipper data directory
         if ! cd "$HOME/$KLIPPER_DATA_DIR"; then
             echo -e "${R}Error: Could not navigate to '$HOME/$KLIPPER_DATA_DIR'. Aborting.${NC}"
             exit 1
         fi
         echo "Changed directory to: $(pwd)" # Debugging output
-
         if [ ! -d "klipper-backup" ]; then
             echo -e "${Y}●${NC} Installing Klipper-Backup into '$KLIPPER_BACKUP_INSTALL_DIR'..."
             loading_wheel "   Cloning repository..." &
@@ -166,7 +155,6 @@ install_repo() {
                 kill $loading_pid &>/dev/null || true
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${G}✓ Cloning repository Done!${NC}"
-
                 # Set permissions and copy .env example
                 chmod +x "$KLIPPER_BACKUP_INSTALL_DIR/script.sh"
                 if [[ -f "$KLIPPER_BACKUP_INSTALL_DIR/.env.example" ]]; then
@@ -200,9 +188,7 @@ install_repo() {
         fi
         # Return to the original script directory (optional, but good practice)
         cd "$parent_path" || echo "${Y}Warning: Could not return to script directory '$parent_path'.${NC}"
-
     else
-
         echo -e "${R}● Installation aborted.${NC}\n"
         exit 1
     fi
@@ -216,27 +202,20 @@ check_updates() {
         return
     fi
     echo "Checking for updates in: $(pwd)" # Debugging
-
     # Fetch latest changes from remote without merging
     git fetch origin devel-v3.0 > /dev/null 2>&1
-
     local local_hash
     local_hash=$(git rev-parse HEAD)
     local remote_hash
     remote_hash=$(git rev-parse origin/devel-v3.0) # Check against the specific branch
-
     if [ "$local_hash" = "$remote_hash" ]; then
         echo -e "${G}●${NC} Klipper-Backup ${G}is up to date.${NC}\n"
     else
         echo -e "${Y}●${NC} Update for Klipper-Backup ${Y}Available!${NC}\n"
-
         if ask_yn "Proceed with update?"; then
-
-
             echo -e "${Y}●${NC} Updating Klipper-Backup..."
             loading_wheel "   Pulling changes..." &
             local loading_pid=$!
-
             # Stash local changes (like .env) before pulling, then reapply
             local stash_needed=false
             if ! git diff --quiet || ! git diff --cached --quiet; then
@@ -244,12 +223,10 @@ check_updates() {
                 git stash push -u -m "Klipper-Backup-Installer-Update-$(date +%s)" > /dev/null
                 stash_needed=true
             fi
-
             if git pull origin devel-v3.0 --ff-only > /dev/null 2>&1; then # Try fast-forward first
                 kill $loading_pid &>/dev/null || true
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${G}✓ Pulling changes Done!${NC}"
-
                 if $stash_needed; then
                     echo -e "   ${Y}Reapplying stashed changes...${NC}"
                     if ! git stash pop > /dev/null 2>&1; then
@@ -262,7 +239,6 @@ check_updates() {
                         echo -e "   ${G}✓ Stashed changes reapplied.${NC}"
                     fi
                 fi
-
                 echo -e "${G}●${NC} Updating Klipper-Backup ${G}Done!${NC}\n\n Restarting installation script to ensure consistency..."
                 sleep 2
                 # Execute the script again, passing the chosen data dir might be needed if state isn't preserved
@@ -279,7 +255,6 @@ check_updates() {
                 exec "$parent_path/install.sh"
             fi
         else
-
             echo -e "${M}●${NC} Klipper-Backup update ${M}skipped!${NC}\n"
         fi
     fi
@@ -291,9 +266,7 @@ check_updates() {
 # --- Configure .env File ---
 configure() {
     local ghtoken_username=""
-
     local message
-
     # Check if the target .env file exists and if token is default
     if [[ -f "$ENV_FILE_PATH" ]] && grep -q "github_token=ghp_xxxxxxxxxxxxxxxx" "$ENV_FILE_PATH"; then
         message="Do you want to proceed with configuring the Klipper-Backup .env?"
@@ -304,14 +277,9 @@ configure() {
         echo -e "${Y}Try running the installation again.${NC}"
         return 1 # Indicate failure
     fi
-
     if ask_yn "$message"; then
-
-
         # --- Nested functions for getting user input ---
         # These functions now modify the correct ENV_FILE_PATH
-
-
         getToken() {
             echo -e "\nSee: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
             echo -e "(Ensure token has 'repo' scope for private repos, or 'public_repo' for public ones)"
@@ -319,103 +287,80 @@ configure() {
             ghtoken=$(ask_token "Enter your GitHub token")
             local result
             result=$(check_ghToken "$ghtoken") # Check Github Token
-
             if [ "$result" != "" ]; then
                 # Use | as sed delimiter to avoid issues with / in token (though unlikely)
                 sed -i "s|^github_token=.*|github_token=$ghtoken|" "$ENV_FILE_PATH"
                 ghtoken_username=$result # Store username derived from token check
                 echo -e "${G}✓ Token validated and saved.${NC}"
-
             else
-
                 echo "${R}Invalid GitHub token or unable to contact GitHub API.${NC}"
                 echo "${Y}Please check token and network connection, then try again.${NC}"
                 getToken # Ask again
             fi
         }
         getUser() {
-
             local ghuser
             ghuser=$(ask_textinput "Enter your GitHub username" "$ghtoken_username") # Suggest username from token check
-
             menu # Assuming menu redraws or handles cursor
             local exitstatus
             exitstatus=$?
             if [ $exitstatus = 0 ]; then
                 sed -i "s|^github_username=.*|github_username=$ghuser|" "$ENV_FILE_PATH"
-
             else
-
                 getUser # Ask again
             fi
         }
         getRepo() {
             local ghrepo
             ghrepo=$(ask_textinput "Enter your repository name")
-
             menu
             local exitstatus
             exitstatus=$?
             if [ $exitstatus = 0 ]; then
                 sed -i "s|^github_repository=.*|github_repository=$ghrepo|" "$ENV_FILE_PATH"
-
             else
-
                 getRepo
             fi
         }
         getBranch() {
-
             local repobranch
             repobranch=$(ask_textinput "Enter your desired branch name" "main")
-
             menu
             local exitstatus
             exitstatus=$?
             if [ $exitstatus = 0 ]; then
                 # Ensure branch name is quoted in .env if it contains special chars (unlikely but safe)
                 sed -i "s|^branch_name=.*|branch_name=\"$repobranch\"|" "$ENV_FILE_PATH"
-
             else
-
                 getBranch
             fi
         }
         getCommitName() {
-
             local commitname
             commitname=$(ask_textinput "Enter desired commit username" "$(whoami)")
-
             menu
             local exitstatus
             exitstatus=$?
             if [ $exitstatus = 0 ]; then
                 sed -i "s|^commit_username=.*|commit_username=\"$commitname\"|" "$ENV_FILE_PATH"
-
             else
-
                 getCommitName
             fi
         }
         getCommitEmail() {
-
             local unique_id
             unique_id=$(getUniqueid) # Assuming getUniqueid is from utils
             local commitemail
             commitemail=$(ask_textinput "Enter desired commit email" "$(whoami)@$(hostname --short)-$unique_id")
-
             menu
             local exitstatus
             exitstatus=$?
             if [ $exitstatus = 0 ]; then
                 sed -i "s|^commit_email=.*|commit_email=\"$commitemail\"|" "$ENV_FILE_PATH"
-
             else
-
                 getCommitEmail
             fi
         }
-
         # --- Execute the input gathering functions ---
         # Use a loop for retries if needed, but simple sequence for now
         getToken
@@ -424,14 +369,10 @@ configure() {
         getBranch
         getCommitName
         getCommitEmail
-
         # --- Final cleanup after configuration ---
-
         echo -e "${G}●${NC} Configuration ${G}Done!${NC}\n"
-
     else
         # User skipped configuration
-
         echo -e "${M}●${NC} Configuration ${M}skipped!${NC}\n"
     fi
     # Ensure cursor is on a new line after this section
@@ -441,15 +382,12 @@ configure() {
 
 # --- Patch Moonraker Update Manager ---
 patch_klipper_backup_update_manager() {
-
     local moonraker_conf_path="$KLIPPER_CONFIG_DIR/moonraker.conf" # Use derived path
     local moonraker_service_name="moonraker" # Default, adjust if needed (e.g., moonraker-punisher)
-
     # --- Determine Moonraker Service Name (heuristic) ---
     # Derive the base name by removing '_data' suffix if present
     # Example: "punisher_data" becomes "punisher", "printer_data" becomes "printer"
     local klipper_base_name="${KLIPPER_DATA_DIR%_data}"
-
     # Check for the specific service name first (e.g., moonraker-punisher.service)
     # Only check if the base name isn't the default 'printer' (which usually uses 'moonraker.service')
     if [[ "$klipper_base_name" != "printer" ]] && systemctl list-units --full -all | grep -q "moonraker-${klipper_base_name}.service"; then
@@ -467,9 +405,7 @@ patch_klipper_backup_update_manager() {
         echo "${Y}         Assuming default '$moonraker_service_name'. You may need to adjust manually if patching fails.${NC}"
         # Keep moonraker_service_name as the default "moonraker"
     fi
-
     # --- Check prerequisites ---
-    # ... (rest of the prerequisite checks remain the same) ...
     if [[ ! -d "$HOME/moonraker" ]]; then
         echo -e "${Y}● Moonraker source directory not found ($HOME/moonraker). Skipping update manager patch.${NC}\n"
         return
@@ -483,26 +419,20 @@ patch_klipper_backup_update_manager() {
         echo -e "${R}Error: Moonraker config file not found at '$moonraker_conf_path'. Cannot patch.${NC}\n"
         return
     fi
-
     # --- Check if already patched ---
-    # ... (check remains the same) ...
     if grep -Eq "^\[update_manager klipper-backup\]\s*$" "$moonraker_conf_path"; then
         echo -e "${M}● Adding Klipper-Backup to update manager skipped! (already added)${NC}\n"
         return
     fi
-
     # --- Ask user ---
-    # ... (ask_yn remains the same) ...
+    # ... (ask_yn) ...
     if ask_yn "Add Klipper-Backup to Moonraker update manager?"; then
 
         echo "${Y}●${NC} Adding Klipper-Backup to update manager..."
         loading_wheel "   Patching $moonraker_conf_path..." &
         local loading_pid=$!
 
-        # ... (Ensure newline at EOF remains the same) ...
         [[ $(tail -c1 "$moonraker_conf_path" | wc -l) -eq 0 ]] && echo "" | sudo tee -a "$moonraker_conf_path" > /dev/null
-
-        # ... (Prepare patch content remains the same) ...
         local patch_content
         if ! patch_content=$(sed "s|path = ~/klipper-backup|path = $KLIPPER_BACKUP_INSTALL_DIR|" "$parent_path/install-files/moonraker.conf"); then
             kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
@@ -510,7 +440,6 @@ patch_klipper_backup_update_manager() {
             return 1
         fi
 
-        # ... (Append patch remains the same) ...
         if echo "$patch_content" | sudo tee -a "$moonraker_conf_path" > /dev/null; then
             echo -e "\r\033[K   ${G}✓ Patched $moonraker_conf_path${NC}"
             # Use the potentially updated moonraker_service_name here
@@ -538,16 +467,14 @@ patch_klipper_backup_update_manager() {
 
 # Function to handle shell_command.cfg setup
 install_shell_command_config() {
-  local source_example="$parent_path/shell_command.cfg.example"
-  local target_cfg="$KLIPPER_CONFIG_DIR/shell_command.cfg" # e.g., /home/pi/printer_data/config/shell_command.cfg
-  local target_dir="$KLIPPER_CONFIG_DIR"                  # e.g., /home/pi/printer_data/config
-
+local source_example="$parent_path/shell_command.cfg.example"
+local target_cfg="$KLIPPER_CONFIG_DIR/shell_command.cfg" # e.g., /home/pi/printer_data/config/shell_command.cfg
+local target_dir="$KLIPPER_CONFIG_DIR"                  # e.g., /home/pi/printer_data/config
 # Ensure the source example file exists
 if [ ! -f "$source_example" ]; then
     echo "Warning: Source file '$source_example' not found. Skipping shell_command.cfg setup."
     return
 fi
-
 # Ensure the target config directory exists
 if [ ! -d "$target_dir" ]; then
     # This shouldn't happen if Klipper is installed correctly and paths were set, but good to check.
@@ -555,9 +482,7 @@ if [ ! -d "$target_dir" ]; then
     echo "Cannot proceed with shell_command.cfg setup."
     return
 fi
-
-echo ">>> Processing Klipper shell_command configuration..."
-
+    echo ">>> Processing Klipper shell_command configuration..."
 if [ ! -f "$target_cfg" ]; then
     # Target file does NOT exist - Copy the example file
     echo "  'shell_command.cfg' not found in '$target_dir'."
@@ -590,8 +515,8 @@ echo ">>> Finished processing Klipper shell_command configuration."
 }
 
 
-# Includes improved inotify-tools installation/compilation logic
-# Helper function for compiling inotify-tools (kept from previous context)
+# inotify-tools installation/compilation logic
+# Helper function for compiling inotify-tools
 install_inotify_from_source() {
     echo -e "\n${Y}● Compiling latest version of inotify-tools from source (This may take a few minutes)${NC}"
     local build_deps="autoconf autotools-dev automake libtool build-essential git"
@@ -601,11 +526,9 @@ install_inotify_from_source() {
         return 1
     fi
     echo "${G}● Build dependencies checked/installed.${NC}"
-
     local source_dir="/tmp/inotify-tools-src-$$" # Use /tmp
     local current_dir=$(pwd)
     sudo rm -rf "$source_dir" # Clean previous attempts
-
     echo "${Y}● Cloning inotify-tools repository...${NC}"
     loading_wheel "   ${Y}Cloning...${NC}" & local loading_pid=$!
     if git clone --depth 1 https://github.com/inotify-tools/inotify-tools.git "$source_dir" > /dev/null 2>&1; then
@@ -616,9 +539,7 @@ install_inotify_from_source() {
         echo -e "\r\033[K   ${R}✗ Failed to clone inotify-tools repository.${NC}"
         sudo rm -rf "$source_dir"; return 1
     fi
-
     cd "$source_dir" || { echo -e "${R}✗ Failed to enter source directory '$source_dir'.${NC}"; sudo rm -rf "$source_dir"; return 1; }
-
     local build_ok=true
     local build_commands=("./autogen.sh" "./configure --prefix=/usr" "make" "sudo make install")
     for cmd in "${build_commands[@]}"; do
@@ -627,11 +548,8 @@ install_inotify_from_source() {
             echo -e "${R}✗ Command Failed: ${cmd}${NC}\nOutput:\n$output${NC}"; build_ok=false; break
         fi
     done
-
     cd "$current_dir"; echo "${Y}● Cleaning up source directory...${NC}"; sudo rm -rf "$source_dir"
-
     if ! $build_ok; then echo -e "${R}✗ Failed to compile/install inotify-tools from source.${NC}"; return 1; fi
-
     if command -v inotifywait &> /dev/null; then echo -e "${G}● Successfully compiled and installed inotify-tools.${NC}"; return 0; else
         echo -e "${R}✗ Compilation reported success, but 'inotifywait' command still not found. Installation failed.${NC}"; return 1
     fi
@@ -641,8 +559,7 @@ install_inotify_from_source() {
 install_filewatch_service() {
     local base_service_name="klipper-backup-filewatch"
     local service_name # Will be set dynamically
-
-    # --- Determine Dynamic Service Name --- ADD THIS ---
+    # Determine Dynamic Service Name
     # Only add suffix if base name is not 'printer' (default case)
     # and if base name is different from data dir (i.e., _data was removed)
     if [[ "$klipper_base_name" != "printer" && "$klipper_base_name" != "$KLIPPER_DATA_DIR" ]]; then
@@ -651,12 +568,9 @@ install_filewatch_service() {
         service_name="$base_service_name" # Use default name
     fi
     echo "Using filewatch service name: $service_name"
-    # --- End of Added Section ---
-
     local service_file_path="/etc/systemd/system/${service_name}.service"
     local source_service_file="$parent_path/install-files/${base_service_name}.service" # Template always uses base name
     local tmp_service_file="/tmp/${service_name}.service"
-
     # Check if service already exists (using dynamic name)
     if systemctl is-enabled "$service_name" >/dev/null 2>&1 || [[ -f "$service_file_path" ]]; then
         echo -e "${M}● Installing $service_name skipped! (already installed or file exists)${NC}\n"
@@ -681,32 +595,26 @@ install_filewatch_service() {
         echo "${G}✓ inotify-tools installed successfully.${NC}"
     fi
 
-
     if ask_yn "Install Klipper-Backup File Watch Service ($service_name)?"; then
         echo "${Y}●${NC} Installing $service_name..."
         loading_wheel "   Preparing service file..." &
         local loading_pid=$!
-
         # Copy template to tmp
         if ! cp "$source_service_file" "$tmp_service_file"; then
             kill $loading_pid &>/dev/null || true; wait $loading_pid &>/dev/null || true
             echo -e "\r\033[K${R}✗ Error copying template service file.${NC}\n"
             return 1
         fi
-
         # Patch service file in /tmp
         # Escape paths for sed
         local escaped_install_dir=$(sed 's|[&/\]|\\&|g' <<<"$KLIPPER_BACKUP_INSTALL_DIR")
         local escaped_config_dir=$(sed 's|[&/\]|\\&|g' <<<"$KLIPPER_CONFIG_DIR")
-
         sed -i "s|^WorkingDirectory=.*|WorkingDirectory=$escaped_install_dir|" "$tmp_service_file"
         # Pass KLIPPER_CONFIG_DIR via Environment for filewatch.sh to use
         sed -i "s|Environment=KLIPPER_CONFIG_DIR=.*|Environment=KLIPPER_CONFIG_DIR=$escaped_config_dir|" "$tmp_service_file"
         # Ensure ExecStart points to filewatch.sh inside utils
         sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/env bash $escaped_install_dir/utils/filewatch.sh|" "$tmp_service_file"
         sed -i "s|^User=.*|User=${SUDO_USER:-$USER}|" "$tmp_service_file"
-
-
         # Copy patched file from /tmp to /etc/systemd/system
         if sudo cp "$tmp_service_file" "$service_file_path"; then
             sudo systemctl daemon-reload
@@ -738,8 +646,7 @@ install_filewatch_service() {
 install_backup_service() {
     local base_service_name="klipper-backup-on-boot"
     local service_name # Will be set dynamically
-
-    # --- Determine Dynamic Service Name --- ADD THIS ---
+    # Determine Dynamic Service Name
     # Only add suffix if base name is not 'printer' (default case)
     # and if base name is different from data dir (i.e., _data was removed)
     if [[ "$klipper_base_name" != "printer" && "$klipper_base_name" != "$KLIPPER_DATA_DIR" ]]; then

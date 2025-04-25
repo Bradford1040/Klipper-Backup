@@ -22,8 +22,7 @@ loading_wheel() {
 	local chars="/-\|"; 
 	local delay=0.1; 
 	local message="$@"; 
-	tput civis;
-	
+	tput civis;	
 	while true; do 
 		for i in {0..3}; do 
 			echo -ne "\r${chars:$i:1} $message"; 
@@ -216,7 +215,6 @@ check_dependencies() {
                 echo "Unsupported package manager. Please install '$pkg' manually."
                 return 1
             fi
-
             # Check if the installation was successful
             if ! dpkg -s "$pkg" >/dev/null 2>&1; then
                 echo "Installation failed. Please install '$pkg' manually."
