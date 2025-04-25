@@ -5,6 +5,7 @@ Wants=
 
 [Service]
 User=
+WorkingDirectory=
 Type=oneshot
 ExecStart=/usr/bin/env bash  -c "/usr/bin/env bash $HOME/klipper-backup/script.sh -c \"New Backup on boot - $(date +\"%%x - %%X\")\""
 

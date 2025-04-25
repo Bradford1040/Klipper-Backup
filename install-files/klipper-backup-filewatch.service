@@ -5,6 +5,7 @@ Wants=
 
 [Service]
 User=
+WorkingDirectory=
 Type=simple
 ExecStart=/usr/bin/env bash -c '"$HOME/klipper-backup/utils/filewatch.sh"'
 
