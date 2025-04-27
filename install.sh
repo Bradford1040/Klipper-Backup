@@ -322,6 +322,29 @@ configure() {
                 getRepo
             fi
         }
+        local ghuser ghrepo ghtoken
+        ghuser=$(grep '^github_username=' "$ENV_FILE_PATH" | cut -d'=' -f2)
+        ghrepo=$(grep '^github_repository=' "$ENV_FILE_PATH" | cut -d'=' -f2)
+        ghtoken=$(grep '^github_token=' "$ENV_FILE_PATH" | cut -d'=' -f2)
+        echo "Checking if repository ${ghuser}/${ghrepo} exists..."
+        # Use curl to check. -I gets headers, -L follows redirects. Check for 200 OK or 301/302 Redirect (for renamed repos)
+        local http_status
+        http_status=$(curl -L -s -o /dev/null -w "%{http_code}" -H "Authorization: token $ghtoken" "https://api.github.com/repos/${ghuser}/${ghrepo}")
+            if [[ "$http_status" == "200" ]]; then
+                echo "${G}✓ Repository found.${NC}"
+            elif [[ "$http_status" == "404" ]]; then
+                echo "${Y}Warning: Repository ${ghuser}/${ghrepo} not found or token lacks permissions to see it.${NC}"
+                echo "${Y}Please ensure the repository exists on GitHub before the first backup.${NC}"
+            elif [[ "$http_status" == "401" ]]; then
+                echo "${R}Error: Invalid GitHub token used for repository check (Unauthorized).${NC}"
+            # Token validation should have caught this, but double-check
+            elif [[ "$http_status" == "403" ]]; then
+                echo "${R}Error: Token does not have sufficient scope to check repository, or rate limit hit.${NC}"
+            else
+                echo "${Y}Warning: Could not definitively check repository status (HTTP Status: $http_status).${NC}"
+            echo "${Y}Please ensure the repository exists on GitHub before the first backup.${NC}"
+            fi
+            sleep 1 # Pause for user to read
         getBranch() {
             local repobranch
             repobranch=$(ask_textinput "Enter your desired branch name" "main")
