@@ -6,8 +6,8 @@ C=$'\e[96m'   # Cyan ${C}
 NC=$'\e[0m'   # No Color ${NC}
 
 # Create unique id for git email
-getUniqueid() { 
-	date +%s%N | md5sum | head -c 7; 
+getUniqueid() {
+	date +%s%N | md5sum | head -c 7;
 } # Simple unique ID
 
 wantsafter() {
@@ -19,16 +19,16 @@ wantsafter() {
 }
 
 loading_wheel() {
-	local chars="/-\|"; 
-	local delay=0.1; 
-	local message="$@"; 
-	tput civis;	
-	while true; do 
-		for i in {0..3}; do 
-			echo -ne "\r${chars:$i:1} $message"; 
+	local chars="/-\|";
+	local delay=0.1;
+	local message="$@";
+	tput civis;
+	while true; do
+		for i in {0..3}; do
+			echo -ne "\r${chars:$i:1} $message";
 			sleep $delay; 
 		done; 
-	done & 
+	done &
 } # Basic wheel
 
 getcursor() {
