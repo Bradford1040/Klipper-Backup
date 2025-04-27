@@ -18,7 +18,7 @@ wantsafter() {
     fi
 }
 
-loading_wheel() { 
+loading_wheel() {
 	local chars="/-\|"; 
 	local delay=0.1; 
 	local message="$@"; 
@@ -31,7 +31,7 @@ loading_wheel() {
 	done & 
 } # Basic wheel
 
-getcursor() { 
+getcursor() {
 	tput cup 999 0; 
 	echo -ne "\033[6n"; 
 	read -sdR CURPOS; CURPOS=${CURPOS#*[}; 
@@ -47,7 +47,7 @@ run_command() {
     echo -e "\r\033[K   ${G}●${NC} Running $command ${G}Done!${NC}"
 }
 
-clearUp() { 
+clearUp() {
 	tput ed; 
 } # Clear from cursor to end of screen
 
@@ -107,7 +107,7 @@ ask_token() {
     echo "$input"
 }
 
-ask_textinput() { 
+ask_textinput() {
 	local prompt="$1"; 
 	local default="$2"; 
 	local response; 
