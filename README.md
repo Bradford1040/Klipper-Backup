@@ -68,7 +68,7 @@ You might need other tools like rsync `sudo apt install rsync`, but these are of
 * Navigate to your home directory
 
 ```shell
-   cd ...
+   cd ~
 ```
 
 * Clone the repository, this is a the `devel-v3.0` branch, (download it using `git clone`):
