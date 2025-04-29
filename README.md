@@ -68,19 +68,19 @@ You might need other tools like rsync `sudo apt install rsync`, but these are of
 * Navigate to your home directory
 
 ```shell
-   cd ~
+cd ~
 ```
 
 * Clone the repository, this is a the `devel-v3.0` branch, (download it using `git clone`):
 
 ```shell
-  git clone -b devel-v3.0 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/klipper-backup
+git clone -b devel-v3.0 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/klipper-backup
 ```
 
 * Go into the newly downloaded custom directory:
 
 ```shell
-  cd ~/klipper-backup
+cd ~/klipper-backup
 ```
 
 inside. This file tells the backup script what to back up and where to find it. You'll likely need to set:
