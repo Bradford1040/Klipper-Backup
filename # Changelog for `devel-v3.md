@@ -9,7 +9,7 @@
 * Shell Command Configuration: Added functionality to create or append to shell_command.cfg during installation.
 * Inotify & Lock Service: Added installation of inotify-tools (from source) and a lock service to prevent conflicts between manual and scheduled backups.
 * Documentation: Added information about the custom installation file to the README.
-* Changelog: Added an initial changelog file (tracking changes since KIAUH_V2).
+* Changelog: Added an changelog file (tracking changes since main).
 
 ### Changed
 
@@ -21,7 +21,7 @@
 * Code Refinements: Numerous cleanups, including removing extra spaces, fixing formatting, refactoring functions, and improving code structure.
 * Major Refactoring: Included significant unspecified changes described as "Major change, too much to list".
 * Gitignore: Updated .gitignore to exclude vscode suggestions and remove python/node.js entries.
-* CI/Development: Updated markdown_issue_check.yaml, added ShellCheck integration, and included contributor links.
+* CI/Development: Updated markdown_issue_check.yaml, added ShellCheck integration, and included Original Developer links.
 * Backup Path: Added more flexibility/options to the backup path configuration.
 * README: Multiple updates including version changes, added mentions, clarifications, and removal of unnecessary lines.
 * Installation Script: General updates and improvements to install.sh.
@@ -51,6 +51,6 @@
 
 * Extraneous whitespace characters from various files.
 * tput command usage due to terminal issues.
-* Potentially incorrect bash language identifiers (... instead of :;).
+* Incorrect bash language identifiers (... instead of :;).
 * Accidentally pasted lines of code.
 * python & node.js from .gitignore!
