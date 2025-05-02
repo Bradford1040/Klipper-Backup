@@ -165,12 +165,16 @@ install_repo() {
                 fi
                     if [[ -f "$ENV_FILE_PATH" ]]; then
                     echo -e "   ${Y}Setting default backupPaths in .env...${NC}"
-                    # Use | as delimiter for sed
+                    local new_backup_paths_content="backupPaths=( \\
++\"${KLIPPER_DATA_DIR}/config/*\" \\
++)"
                     # This replaces the example line with one pointing to the user's config dir
-                    sudo sed -i "s|^backupPaths=(.*|backupPaths=( \\\n\"${KLIPPER_DATA_DIR}/config/*\" \\\n)|" "$ENV_FILE_PATH"
+                    sudo sed -i '/^backupPaths=/,/^\s*)/d' "$ENV_FILE_PATH"
+                    echo "$new_backup_paths_content" | sudo tee -a "$ENV_FILE_PATH" > /dev/null
                     # Optional: Add another directory for backup besides the config dir
                     # sudo sed -i "/\"${KLIPPER_DATA_DIR}\/config\/\*\"/a \"${KLIPPER_DATA_DIR}/klipper_logs/*\" \\\\" "$ENV_FILE_PATH"
                     echo -e "   ${G}✓ Default backupPaths set (please review/edit)${NC}"
+                    
                     fi
                 sleep .5
                 echo -e "${G}●${NC} Installing Klipper-Backup ${G}Done!${NC}\n"
@@ -285,6 +289,7 @@ configure() {
             echo -e "(Ensure token has 'repo' scope for private repos, or 'public_repo' for public ones)"
             local ghtoken
             ghtoken=$(ask_token "Enter your GitHub token")
+            clear
             local result
             result=$(check_ghToken "$ghtoken") # Check Github Token
             if [ "$result" != "" ]; then
@@ -301,6 +306,7 @@ configure() {
         getUser() {
             local ghuser
             ghuser=$(ask_textinput "Enter your GitHub username" "$ghtoken_username") # Suggest username from token check
+            clear
             menu # Assuming menu redraws or handles cursor
             local exitstatus
             exitstatus=$?
@@ -313,6 +319,7 @@ configure() {
         getRepo() {
             local ghrepo
             ghrepo=$(ask_textinput "Enter your repository name")
+            clear
             menu
             local exitstatus
             exitstatus=$?
@@ -348,6 +355,7 @@ configure() {
         getBranch() {
             local repobranch
             repobranch=$(ask_textinput "Enter your desired branch name" "main")
+            clear
             menu
             local exitstatus
             exitstatus=$?
@@ -361,6 +369,7 @@ configure() {
         getCommitName() {
             local commitname
             commitname=$(ask_textinput "Enter desired commit username" "$(whoami)")
+            clear
             menu
             local exitstatus
             exitstatus=$?
@@ -375,6 +384,7 @@ configure() {
             unique_id=$(getUniqueid) # Assuming getUniqueid is from utils
             local commitemail
             commitemail=$(ask_textinput "Enter desired commit email" "$(whoami)@$(hostname --short)-$unique_id")
+            clear
             menu
             local exitstatus
             exitstatus=$?
