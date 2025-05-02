@@ -76,6 +76,7 @@ ask_yn() {
     while true; do
         # Use the modified prompt
         read -p "$full_prompt" -n 1 -r response < /dev/tty; echo; # -n 1 reads only one char
+        clear # clear screen after each input
         case "$response" in
         [yY]) return 0;;
         [nN]|"") return 1;; # "" handles the Enter key press, defaulting to No

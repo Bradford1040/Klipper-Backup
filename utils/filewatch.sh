@@ -64,6 +64,8 @@ while read -r path event file; do
         file=$(basename "$path")
     fi
     echo "Event Type: $event, Watched Path: $path, File Name: $file"
+    echo "Waiting 2 minutes before triggering backup..." # Optional: Add a log message
+    sleep 120 # Add a 120-second (2 minute) delay
     # Use parent_path determined earlier to find script.sh
     file="$file" /usr/bin/env bash -c "/usr/bin/env bash \"$parent_path/script.sh\" -c \"\$file modified - \$(date +'%x - %X')\"" > /dev/null 2>&1
 done
