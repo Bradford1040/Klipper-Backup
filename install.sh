@@ -760,7 +760,7 @@ install_cron() {
 
         # Define the cron job entry using the dynamic comment
         # Ensure KLIPPER_BACKUP_INSTALL_DIR is correctly quoted
-        local cron_job="*/ 4 * * * cd '$KLIPPER_BACKUP_INSTALL_DIR' && bash script.sh -c \"Cron Backup (${klipper_base_name})\" $cron_job_comment"
+        local cron_job="*/ 4 * * * cd '$KLIPPER_BACKUP_INSTALL_DIR' && bash script.sh -c \"Cron backup - \$(date +'\\%x - \\%X')\" $cron_job_comment"
 
         # Add the job using crontab
         # The check using the comment was already done above
