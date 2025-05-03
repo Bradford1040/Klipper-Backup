@@ -153,6 +153,7 @@ install_repo() {
             # Clone directly into the target directory name 'klipper-backup' inside the current dir
             if git clone -b devel-v3.0 --single-branch https://github.com/Bradford1040/klipper-backup.git klipper-backup > /dev/null 2>&1; then
                 kill $loading_pid &>/dev/null || true
+                tput cnorm # Restore cursor visibility
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${G}✓ Cloning repository Done!${NC}"
                 # Set permissions and copy .env example
@@ -180,6 +181,7 @@ install_repo() {
                 echo -e "${G}●${NC} Installing Klipper-Backup ${G}Done!${NC}\n"
             else
                 kill $loading_pid &>/dev/null || true
+                tput cnorm # Restore cursor visibility
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${R}✗ Failed to clone Klipper-Backup repository.${NC}"
                 # Attempt to clean up potentially incomplete clone
@@ -229,6 +231,7 @@ check_updates() {
             fi
             if git pull origin devel-v3.0 --ff-only > /dev/null 2>&1; then # Try fast-forward first
                 kill $loading_pid &>/dev/null || true
+                tput cnorm # Restore cursor visibility
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${G}✓ Pulling changes Done!${NC}"
                 if $stash_needed; then
@@ -250,6 +253,7 @@ check_updates() {
                 exec "$parent_path/install.sh"
             else
                 kill $loading_pid &>/dev/null || true
+                tput cnorm # Restore cursor visibility
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${R}✗ Error Updating Klipper-Backup (Maybe conflicting changes).${NC}"
                 echo -e "   ${Y}Attempting 'git reset --hard' and restarting script...${NC}"
@@ -762,15 +766,31 @@ install_cron() {
         return 1 # Indicate failure to install
     fi
 
+    # --- Calculate next available minute offset ---
+    local max_minute
+    # Find the highest minute used by existing Klipper-Backup cron jobs based on the comment pattern
+    # We grep for the base comment part, extract the first field (minute), sort numerically descending, take the top one.
+    max_minute=$(crontab -l 2>/dev/null | grep '# Klipper-Backup Cron (' | awk '{print $1}' | sort -nr | head -n 1)
+
+    # Default to -2 if no jobs found or if max_minute isn't a number, so the first job gets minute 0
+    if [[ -z "$max_minute" || ! "$max_minute" =~ ^[0-9]+$ ]]; then
+        max_minute=-2
+    fi
+
+    # Calculate the next minute, adding 2
+    local next_minute=$((max_minute + 2))
+    # --- End of minute calculation ---
+
     # Ask user
-    if ask_yn "Install cron task for ${klipper_base_name}? (automatic backup every 5 minutes)"; then # Updated frequency in prompt
+    if ask_yn "Install cron task for ${klipper_base_name}? (automatic backup every 4 hours)"; then # Updated frequency in prompt
 
         echo "${Y}●${NC} Installing Cron Job for ${klipper_base_name}..."
         loading_wheel "   Adding cron job..." & local loading_pid=$!
-
+        # Define a unique log file path using the instance name
+        local log_file="/tmp/klipper_backup_cron_${klipper_base_name}.log"
         # Define the cron job entry using the dynamic comment
         # Ensure KLIPPER_BACKUP_INSTALL_DIR is correctly quoted
-        local cron_job="*/ 4 * * * cd '$KLIPPER_BACKUP_INSTALL_DIR' && bash script.sh -c \"Cron backup - \$(date +'\\%x - \\%X')\" $cron_job_comment"
+        local cron_job="$next_minute */4 * * * cd '$KLIPPER_BACKUP_INSTALL_DIR' && (echo \"--- Running ${klipper_base_name} Backup ---\"; git status --untracked-files=all; bash script.sh -c \\\"Cron backup - \$(date +'\\\\%x - \\\\%X')\\\") >> \"$log_file\" 2>&1 $cron_job_comment"
 
         # Add the job using crontab
         # The check using the comment was already done above

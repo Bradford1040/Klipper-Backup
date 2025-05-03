@@ -153,6 +153,7 @@ function menu() {
         "") # Enter key
             case $choice in
             1)
+                clear # Clear screen on Confirm
                 return 0
                 ;;
             2)
