@@ -157,6 +157,26 @@ else
     full_git_url=$git_protocol"://"$github_token"@"$git_host"/"$github_username"/"$github_repository".git"
 fi
 
+# Attempt to parse 'exclude' if it's defined as a string in .env
+if declare -p exclude &>/dev/null; then # If exclude is declared
+    # Check if 'exclude' is a simple string variable (not an array)
+    if [[ "$(declare -p exclude)" =~ ^declare\ --\ exclude= ]]; then
+        echo "[Info] 'exclude' from .env is a string. Attempting to parse into an array."
+        local temp_exclude_string="$exclude" # Copy the string value
+        read -r -a exclude <<< "$temp_exclude_string" # Re-assign to exclude as an array
+        echo "[Info] Parsed 'exclude' array elements: ${exclude[@]}"
+    # Check if 'exclude' is an array of a single element which itself is a space-separated list
+    elif [[ "$(declare -p exclude)" =~ ^declare\ -a\ exclude=\(\[0\]= && ${#exclude[@]} -eq 1 && "${exclude[0]}" == *" "* ]]; then
+        # This handles cases like exclude=("pattern1 pattern2 pattern3") from .env
+        echo "[Info] 'exclude' from .env is an array of a single string list. Attempting to parse."
+        local temp_exclude_string="${exclude[0]}"
+        read -r -a exclude <<< "$temp_exclude_string"
+        echo "[Info] Parsed 'exclude' array elements: ${exclude[@]}"
+    fi
+    # If 'exclude' was already a proper multi-element array from .env,
+    # e.g., exclude=("pattern1" "pattern2"), it will pass through this logic untouched.
+fi
+
 # Default exclude patterns if not defined or empty in .env
 if ! declare -p exclude &>/dev/null || [ ${#exclude[@]} -eq 0 ]; then
     default_exclude_patterns=(
@@ -166,6 +186,7 @@ if ! declare -p exclude &>/dev/null || [ ${#exclude[@]} -eq 0 ]; then
     )
     exclude=("${default_exclude_patterns[@]}")
     echo "[Info] Using default exclude patterns for rsync and .gitignore."
+    echo "DEBUG: Effective exclude patterns are: ${exclude[@]}" # Temporary debug line
 fi
 
 # Required for checking the use of the commit_message and debug parameter
