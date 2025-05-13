@@ -330,7 +330,7 @@ for path_spec in "${backupPaths[@]}"; do # path_spec is like "printer_data/confi
         # $item is now a path relative to $HOME (e.g., printer_data/config/printer.cfg)
         # rsync -aR "$item" "$backup_path/" will create $backup_path/printer_data/config/printer.cfg
         rsync -aR "$item" "$backup_path/"
-    fi
+    
 done
 shopt -u nullglob # Revert nullglob to default behavior if it's not desired globally
 echo -e "${G}✓ File copying complete.${NC}"
