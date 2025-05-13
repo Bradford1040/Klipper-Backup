@@ -185,7 +185,7 @@ esac
 done
 
 # Check for updates
-[ $(git -C "$parent_path" rev-parse HEAD) = $(git -C "$parent_path" ls-remote $(git -C "$parent_path" rev-parse --abbrev-ref @{u} | sed 's/\// /g') | cut -f1) ] && echo -e "Klipper-Backup is up to date\n" || echo -e "${Y}●${NC} Update for Klipper-Backup ${Y}Available!${NC}\n"
+[ $(git -C "$parent_path" rev-parse HEAD) = $(git -C "$parent_path" ls-remote $(git -C "$parent_path" rev-parse --abbrev-ref '@{u}' | sed 's/\// /g') | cut -f1) ] && echo -e "Klipper-Backup is up to date\n" || echo -e "${Y}●${NC} Update for Klipper-Backup ${Y}Available!${NC}\n"
 
 # Check if .env is v1 version
 if [[ ! -v backupPaths ]]; then
@@ -330,7 +330,8 @@ for path_spec in "${backupPaths[@]}"; do # path_spec is like "printer_data/confi
         # $item is now a path relative to $HOME (e.g., printer_data/config/printer.cfg)
         # rsync -aR "$item" "$backup_path/" will create $backup_path/printer_data/config/printer.cfg
         rsync -aR "$item" "$backup_path/"
-done
+    done # This 'done' closes the inner loop: for item in $path_spec
+done # This 'done' closes the outer loop: for path_spec in "${backupPaths[@]}"
 shopt -u nullglob # Revert nullglob to default behavior if it's not desired globally
 echo -e "${G}✓ File copying complete.${NC}"
 cd "$backup_path" # Return to backup directory for git operations
@@ -369,8 +370,8 @@ fi
 git rm -r --cached . >/dev/null 2>&1
 git add .
 git commit --no-gpg-sign -m "$commit_message"
-# Check if HEAD still matches remote (Means there are no updates to push) and create a empty commit just informing that there are no new updates to push
-if $allow_empty_commits && [[ $(git rev-parse HEAD) == $(git ls-remote $(git rev-parse --abbrev-ref @{u} 2>/dev/null | sed 's/\// /g') | cut -f1) ]]; then
+# Check if HEAD still matches remote (Means there are no updates to push) and create an empty commit just informing that there are no new updates to push
+if $allow_empty_commits && [[ $(git rev-parse HEAD) == $(git ls-remote $(git rev-parse --abbrev-ref '@{u}' 2>/dev/null | sed 's/\// /g') | cut -f1) ]]; then
     git commit --no-gpg-sign --allow-empty -m "$commit_message - No new changes pushed" # --no-gpg-sign is set as I have verified commits set on GitHub
 fi
 git push -u origin "$branch_name"
