@@ -366,12 +366,14 @@ for path_spec in "${backupPaths[@]}"; do # path_spec is like "printer_data/confi
     # Shell expands $path_spec here. For example, if path_spec is "dir/*",
     # 'item' will iterate over 'dir/file1', 'dir/file2', etc.
     # If path_spec is "dir/singlefile.cfg", 'item' will be "dir/singlefile.cfg".
+    echo "DEBUG LOOP: Processing path_spec from backupPaths: '$path_spec'"
     for item in $path_spec; do
+    echo "DEBUG LOOP:   Glob expanded to item: '$item'"
         # Check if item exists (nullglob handles no matches by making the loop not run for that $item)
         # but an explicit check can be useful if path_spec was not a glob.
         if [ ! -e "$item" ] && [ ! -L "$item" ]; then
             echo -e "${Y}Warning: File or pattern '$item' (from '$path_spec') not found in $HOME. Skipping.${NC}"
-            continue
+            continue # This continue is for the inner loop (for item)
         fi
 
         if [ -h "$item" ]; then # Check if the item itself is a symlink
