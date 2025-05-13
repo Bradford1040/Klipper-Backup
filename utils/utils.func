@@ -18,18 +18,32 @@ wantsafter() {
     fi
 }
 
+is_ssh() {
+    [[ -n "$SSH_CONNECTION" || -n "$SSH_TTY" ]]
+}
+
 loading_wheel() {
-	local chars="/-\|";
-	local delay=0.1;
-	local message="$@";
-	tput civis;
-	while true; do
-		for i in {0..3}; do
-			echo -ne "\r${chars:$i:1} $message";
-			sleep $delay; 
-		done; 
-	done &
-} # Basic wheel
+    local chars="/-\|"
+    local delay=0.1
+    local message="$@"
+    if is_ssh; then
+        # Simpler animation for SSH: just dots
+        echo -n "$message"
+        while true; do
+            echo -n "."
+            sleep 0.5
+        done
+    else
+        tput civis
+        while true; do
+            for i in {0..3}; do
+                echo -ne "\r${chars:$i:1} $message"
+                sleep $delay
+            done
+        done
+        tput cnorm
+    fi
+}
 
 getcursor() {
 	tput cup 999 0; 

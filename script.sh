@@ -9,9 +9,22 @@ parent_path=$(
     pwd -P
 )
 
+if [[ ! -f "$parent_path/.installed_version" ]]; then
+    echo -e "${Y}Info:${NC} No installed version found. Please run ./install.sh to initialize version tracking."
+fi
+
 # Initialize variables from .env file
 source "$parent_path"/.env
 source "$parent_path"/utils/utils.func
+
+REPO_VERSION="3.0.0"
+if [[ -f "$parent_path/.installed_version" ]]; then
+    INSTALLED_VERSION=$(cat "$parent_path/.installed_version")
+    if [[ "$REPO_VERSION" != "$INSTALLED_VERSION" ]]; then
+        echo -e "${Y}Warning:${NC} Installed version is $INSTALLED_VERSION, but repo version is $REPO_VERSION."
+        echo "Run ./install.sh to update your installed scripts."
+    fi
+fi
 
 # Determine backup_path based on KLIPPER_INSTANCE_NAME from .env
 if [[ -n "$KLIPPER_INSTANCE_NAME" ]]; then

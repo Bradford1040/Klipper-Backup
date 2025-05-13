@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 
+SCRIPT_VERSION="3.0.0"
+
+if [[ "$1" == "--version" ]]; then
+    echo "Klipper-Backup Installer version $SCRIPT_VERSION"
+    exit 0
+fi
+
+# After a successful install, record the version:
+echo "$SCRIPT_VERSION" > "$parent_path/.installed_version"
+
 if [ -z "$BASH_VERSION" ]; then
     echo "Error: This script must be run with bash." >&2
     exit 1
