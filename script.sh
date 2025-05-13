@@ -375,7 +375,7 @@ for path_spec in "${backupPaths[@]}"; do # path_spec is like "printer_data/confi
         fi
 
         if [ -h "$item" ]; then # Check if the item itself is a symlink
-            eI acepted your suggested changes but would like to knowcho "Skipping symbolic link: $item"
+            echo "Skipping symbolic link: $item"
             continue
         fi
         # $item is now a path relative to $HOME (e.g., printer_data/config/printer.cfg)
