@@ -87,6 +87,11 @@ fix() {
     exit 0 # Exit script after fix operation
 }
 
+# --- Ensure Backup Path Exists ---
+# This needs to happen before lock acquisition so the lock directory can be created.
+if [ ! -d "$backup_path" ]; then
+    mkdir -p "$backup_path"
+fi
 # --- Define Lock Directory ---
 # Ensure backup_path is defined (it comes from .env or defaults)
 lock_dir="$backup_path/.script.lock" # Using a hidden dir inside the backup path
@@ -221,11 +226,6 @@ if [ "$debug_output" = true ]; then
         fi
         end_debug_line
     fi
-fi
-
-# Check if backup folder exists, create one if it does not
-if [ ! -d "$backup_path" ]; then
-    mkdir -p "$backup_path"
 fi
 
 cd "$backup_path"
