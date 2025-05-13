@@ -1,6 +1,7 @@
 .env
 secrets.conf
 .vscode
+.moonraker.conf.bak
 
 # OS-specific files
 .DS_Store
