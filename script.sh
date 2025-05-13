@@ -156,7 +156,17 @@ if [[ $git_protocol == "ssh" ]]; then
 else
     full_git_url=$git_protocol"://"$github_token"@"$git_host"/"$github_username"/"$github_repository".git"
 fi
-exclude=${exclude:-"*.swp" "*.tmp" "printer-[0-9]*_[0-9]*.cfg" "*.bak" "*.bkp" "*.csv" "*.zip"}
+
+# Default exclude patterns if not defined or empty in .env
+if ! declare -p exclude &>/dev/null || [ ${#exclude[@]} -eq 0 ]; then
+    default_exclude_patterns=(
+        "*.swp" "*.tmp" "printer-[0-9]*_[0-9]*.cfg"
+        "*.bak" "*.bkp" "*.csv" "*.zip"
+        ".DS_Store" "Thumbs.db"
+    )
+    exclude=("${default_exclude_patterns[@]}")
+    echo "[Info] Using default exclude patterns for rsync and .gitignore."
+fi
 
 # Required for checking the use of the commit_message and debug parameter
 commit_message_used=false
@@ -323,6 +333,13 @@ fi
 
 cd "$HOME" # Ensure paths are processed relative to HOME for rsync -R
 echo -e "${Y}● Copying files to backup directory...${NC}"
+
+# Build rsync exclude options from the exclude array
+rsync_exclude_opts=()
+for ex_pattern in "${exclude[@]}"; do
+    rsync_exclude_opts+=(--exclude="$ex_pattern")
+done
+
 shopt -s nullglob # Globs that match nothing expand to nothing
 for path_spec in "${backupPaths[@]}"; do # path_spec is like "printer_data/config/*" or "klipper_config/specific_file.cfg"
     # Shell expands $path_spec here. For example, if path_spec is "dir/*",
@@ -337,12 +354,12 @@ for path_spec in "${backupPaths[@]}"; do # path_spec is like "printer_data/confi
         fi
 
         if [ -h "$item" ]; then # Check if the item itself is a symlink
-            echo "Skipping symbolic link: $item"
+            eI acepted your suggested changes but would like to knowcho "Skipping symbolic link: $item"
             continue
         fi
         # $item is now a path relative to $HOME (e.g., printer_data/config/printer.cfg)
         # rsync -aR "$item" "$backup_path/" will create $backup_path/printer_data/config/printer.cfg
-        rsync -aR "$item" "$backup_path/"
+        rsync -aR "${rsync_exclude_opts[@]}" "$item" "$backup_path/"
     done # This 'done' closes the inner loop: for item in $path_spec
 done # This 'done' closes the outer loop: for path_spec in "${backupPaths[@]}"
 shopt -u nullglob # Revert nullglob to default behavior if it's not desired globally
@@ -352,15 +369,15 @@ cd "$backup_path" # Return to backup directory for git operations
 # Debug output: $backup_path content after running rsync
 [ "$debug_output" = true ] && begin_debug_line && echo -e "Content of \$backup_path after rsync:" && echo -ne "$(ls -la $backup_path)\n" && end_debug_line
 
-cp "$parent_path/.gitignore" "$backup_path/.gitignore"
-
-# utilize gits native exclusion file .gitignore to add files that should not be uploaded to remote.
-# Loop through exclude array and add each element to the end of .gitignore
-for i in "${exclude[@]}"; do
-    # add new line to end of .gitignore if there is not one
-    [[ $(tail -c1 "$backup_path/.gitignore" | wc -l) -eq 0 ]] && echo "" >>"$backup_path/.gitignore"
-    echo "$i" >>"$backup_path/.gitignore"
+# Create/overwrite .gitignore in the backup directory with patterns from the exclude array.
+# This ensures the .gitignore is specific to the backup content.
+echo "# Auto-generated .gitignore for Klipper Backup repository" > "$backup_path/.gitignore"
+echo "# These patterns are also used by rsync to exclude files from being copied." >> "$backup_path/.gitignore"
+echo "" >> "$backup_path/.gitignore"
+for ex_pattern in "${exclude[@]}"; do
+    echo "$ex_pattern" >> "$backup_path/.gitignore"
 done
+echo "[Info] Generated .gitignore in backup directory: $backup_path/.gitignore"
 
 # Individual commit message, if no parameter is set, use the current timestamp as commit message
 if [ "$commit_message_used" != "true" ]; then
