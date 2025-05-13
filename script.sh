@@ -413,7 +413,7 @@ fi
 
 # Show in commit message which files have been changed
 if $use_filenames_as_commit_msg; then
-    commit_message=$(git diff --name-only "$branch_name" | xargs -n 1 basename | tr '\n' ' ')
+    commit_message=$(git diff --name-only "$branch_name" | xargs -r -n 1 basename 2>/dev/null | tr '\n' ' ')
     [ -z "$commit_message" ] && commit_message="Backup: $(date +"%x - %X")"
 fi
 
