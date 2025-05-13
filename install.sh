@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [ -z "$BASH_VERSION" ]; then
+    echo "Error: This script must be run with bash." >&2
+    exit 1
+fi
+
 # Trap Ctrl+C (SIGINT) to ensure terminal echo is restored
 trap 'stty echo; echo -e "\n${R}● Installation aborted by user.${NC}"; exit 1' SIGINT
 
@@ -20,8 +25,13 @@ if [[ -f "$parent_path/utils/utils.func" ]]; then
     source "$parent_path/utils/utils.func"
 else
     echo "Error: Utility functions not found at '$parent_path/utils/utils.func'. Cannot continue." >&2
+    echo "Try running: git submodule update --init --recursive" >&2
     exit 1
 fi
+
+# --- tput fallback helpers ---
+tput_civis() { command -v tput &>/dev/null && tput civis; }
+tput_cnorm() { command -v tput &>/dev/null && tput cnorm; }
 
 # Must edit before you run ./install.sh
 # --- Global Variables ---
@@ -29,6 +39,7 @@ fi
 KLIPPER_DATA_DIR="" # Custom folder name whe using KIAUH to install multiple printers
 # Make klipper_base_name global so service functions can access it
 declare klipper_base_name
+declare FIX_MODE=false # Flag for --fix mode
 
 # --- Ensure stty echo is enabled on exit (fallback) ---
 # This trap runs on normal exit (0) or error exit (non-zero)
@@ -52,45 +63,50 @@ main() {
     clear
     sudo -v || { echo "${R}Error: sudo privileges required.${NC}"; exit 1; }
     # --- Get Klipper Data Directory from User ---
-    logo # Show logo first for better presentation
-    echo "-----------------------------------------------------"
-    echo " Klipper Installation Target Configuration"
-    echo "-----------------------------------------------------"
-    echo "Please enter the name of your main Klipper data directory."
-    echo "This directory should exist in your home folder ($HOME)."
-    echo "Examples: printer_data, voron_data, punisher_data"
-    echo ""
-    while true; do
-        # Using read -r -p for better compatibility if utils.func isn't sourced yet or ask_textinput isn't ideal here
-        read -r -p "Enter Klipper data directory name: " KLIPPER_DATA_DIR < /dev/tty # Read directly from terminal
-        if [[ -z "$KLIPPER_DATA_DIR" ]]; then
-            echo "${R}Error: Directory name cannot be empty.${NC}"
-        elif [[ ! -d "$HOME/$KLIPPER_DATA_DIR" ]]; then
-            echo "${R}Error: Directory '$HOME/$KLIPPER_DATA_DIR' not found.${NC}"
-            echo "${Y}Please ensure the directory exists before running this script.${NC}"
-        elif [[ "$KLIPPER_DATA_DIR" == *"/"* ]]; then
-            echo "${R}Error: Please enter only the directory name, not a path.${NC}"
-        else
-            # --- Set derived paths globally ---
-            KLIPPER_BACKUP_INSTALL_DIR="$HOME/$KLIPPER_DATA_DIR/klipper-backup"
-            KLIPPER_CONFIG_DIR="$HOME/$KLIPPER_DATA_DIR/config" # Standard location
-            ENV_FILE_PATH="$KLIPPER_BACKUP_INSTALL_DIR/.env"
-            echo "${G}Using '$HOME/$KLIPPER_DATA_DIR' as the Klipper data directory.${NC}"
-            echo "Klipper-Backup will be installed into: $KLIPPER_BACKUP_INSTALL_DIR"
-            echo "-----------------------------------------------------"
-            sleep 1 # Give user a moment to read
-            break # Exit loop, input is valid
-        fi
-    done # <<< THIS 'done' MARKS THE END OF THE LOOP
-    # --- Determine Klipper Data Directory ---
-    # ... (existing logic to get KLIPPER_DATA_DIR) ...
-    # Example: KLIPPER_DATA_DIR="punisher_data" or KLIPPER_DATA_DIR="printer_data"
-    # --- Derive Klipper Base Name --- ADD THIS SECTION ---
-    # Remove '_data' suffix if present. Handles default 'printer_data' -> 'printer'
-    # and custom 'punisher_data' -> 'punisher'.
-    # If '_data' is not present, it uses the original name.
+    if [[ -z "$KLIPPER_DATA_DIR" ]]; then # Only prompt if not already set (e.g., by --fix <dir_name>)
+        logo # Show logo first for better presentation
+        echo "-----------------------------------------------------"
+        echo " Klipper Installation Target Configuration"
+        echo "-----------------------------------------------------"
+        echo "Please enter the name of your main Klipper data directory."
+        echo "This directory should exist in your home folder ($HOME)."
+        echo "Examples: printer_data, voron_data, punisher_data"
+        echo ""
+        local KLIPPER_DATA_DIR_INPUT # Use a local variable for reading input
+        while true; do
+            # Using read -r -p for better compatibility if utils.func isn't sourced yet or ask_textinput isn't ideal here
+            read -r -p "Enter Klipper data directory name: " KLIPPER_DATA_DIR_INPUT < /dev/tty # Read directly from terminal
+            if [[ -z "$KLIPPER_DATA_DIR_INPUT" ]]; then
+                echo "${R}Error: Directory name cannot be empty.${NC}"
+            elif [[ ! -d "$HOME/$KLIPPER_DATA_DIR_INPUT" ]]; then
+                echo "${R}Error: Directory '$HOME/$KLIPPER_DATA_DIR_INPUT' not found.${NC}"
+                echo "${Y}Please ensure the directory exists before running this script.${NC}"
+            elif [[ ! "$KLIPPER_DATA_DIR_INPUT" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+                echo "${R}Error: Directory name may only contain letters, numbers, underscores, and dashes.${NC}"
+            else
+                KLIPPER_DATA_DIR="$KLIPPER_DATA_DIR_INPUT" # Set the global variable
+                # --- Set derived paths globally ---
+                KLIPPER_BACKUP_INSTALL_DIR="$HOME/$KLIPPER_DATA_DIR/klipper-backup"
+                KLIPPER_CONFIG_DIR="$HOME/$KLIPPER_DATA_DIR/config" # Standard location
+                ENV_FILE_PATH="$KLIPPER_BACKUP_INSTALL_DIR/.env"
+                echo "${G}Using '$HOME/$KLIPPER_DATA_DIR' as the Klipper data directory.${NC}"
+                echo "Klipper-Backup will be installed into: $KLIPPER_BACKUP_INSTALL_DIR"
+                echo "-----------------------------------------------------"
+                sleep 1 # Give user a moment to read
+                break # Exit loop, input is valid
+            fi
+        done # <<< THIS 'done' MARKS THE END OF THE LOOP
+    fi # End of KLIPPER_DATA_DIR prompt block if it ran
+
+    # At this point, KLIPPER_DATA_DIR is set (either from prompt above, or from --fix <dir_name> before main was called)
+    # KLIPPER_BACKUP_INSTALL_DIR, KLIPPER_CONFIG_DIR, ENV_FILE_PATH are also set if prompt ran,
+    # or if --fix <dir_name> ran.
+
+    # --- Derive Klipper Base Name ---
+    # This is derived from the finalized KLIPPER_DATA_DIR.
     klipper_base_name="${KLIPPER_DATA_DIR%_data}"
-    echo "Derived Klipper base name: $klipper_base_name" # Optional debug info
+    echo "Using Klipper data directory: $HOME/$KLIPPER_DATA_DIR"
+    echo "Derived Klipper instance base name: $klipper_base_name"
     # --- Proceed with Installation Steps ---
     dependencies
     install_repo # This also handles updates
@@ -139,7 +155,7 @@ dependencies() {
 
 # --- Install/Update Klipper-Backup Repository ---
 install_repo() {
-    if ask_yn "Do you want to proceed with Klipper-Backup installation/update?"; then
+    if [[ "$FIX_MODE" == "true" ]] || ask_yn "Do you want to proceed with Klipper-Backup installation/update?"; then
         # Navigate to the chosen Klipper data directory
         if ! cd "$HOME/$KLIPPER_DATA_DIR"; then
             echo -e "${R}Error: Could not navigate to '$HOME/$KLIPPER_DATA_DIR'. Aborting.${NC}"
@@ -153,7 +169,7 @@ install_repo() {
             # Clone directly into the target directory name 'klipper-backup' inside the current dir
             if git clone -b devel-v3.0 --single-branch https://github.com/Bradford1040/klipper-backup.git klipper-backup > /dev/null 2>&1; then
                 kill $loading_pid &>/dev/null || true
-                tput cnorm # Restore cursor visibility
+                tput_cnorm # Restore cursor visibility
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${G}✓ Cloning repository Done!${NC}"
                 # Set permissions and copy .env example
@@ -167,21 +183,30 @@ install_repo() {
                     if [[ -f "$ENV_FILE_PATH" ]]; then
                     echo -e "   ${Y}Setting default backupPaths in .env...${NC}"
                     local new_backup_paths_content="backupPaths=( \\
-+\"${KLIPPER_DATA_DIR}/config/*\" \\
-+)"
+\"${KLIPPER_DATA_DIR}/config/*\" \\
+)"
                     # This replaces the example line with one pointing to the user's config dir
                     sudo sed -i '/^backupPaths=/,/^\s*)/d' "$ENV_FILE_PATH"
                     echo "$new_backup_paths_content" | sudo tee -a "$ENV_FILE_PATH" > /dev/null
                     # Optional: Add another directory for backup besides the config dir
                     # sudo sed -i "/\"${KLIPPER_DATA_DIR}\/config\/\*\"/a \"${KLIPPER_DATA_DIR}/klipper_logs/*\" \\\\" "$ENV_FILE_PATH"
                     echo -e "   ${G}✓ Default backupPaths set (please review/edit)${NC}"
-                    
+                    # Add/Update KLIPPER_INSTANCE_NAME in .env
+                    echo -e "   ${Y}Setting/Updating KLIPPER_INSTANCE_NAME in .env...${NC}"
+                    if grep -q "^KLIPPER_INSTANCE_NAME=" "$ENV_FILE_PATH"; then
+                        # Variable exists, update it
+                        sudo sed -i "s|^KLIPPER_INSTANCE_NAME=.*|KLIPPER_INSTANCE_NAME=\"${klipper_base_name}\"|" "$ENV_FILE_PATH"
+                    else
+                        # Variable doesn't exist, append it
+                        echo "KLIPPER_INSTANCE_NAME=\"${klipper_base_name}\"" | sudo tee -a "$ENV_FILE_PATH" > /dev/null
+                    fi
+                    echo -e "   ${G}✓ KLIPPER_INSTANCE_NAME ensured as '${klipper_base_name}' in .env${NC}"
                     fi
                 sleep .5
                 echo -e "${G}●${NC} Installing Klipper-Backup ${G}Done!${NC}\n"
             else
                 kill $loading_pid &>/dev/null || true
-                tput cnorm # Restore cursor visibility
+                tput_cnorm # Restore cursor visibility
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${R}✗ Failed to clone Klipper-Backup repository.${NC}"
                 # Attempt to clean up potentially incomplete clone
@@ -218,7 +243,7 @@ check_updates() {
         echo -e "${G}●${NC} Klipper-Backup ${G}is up to date.${NC}\n"
     else
         echo -e "${Y}●${NC} Update for Klipper-Backup ${Y}Available!${NC}\n"
-        if ask_yn "Proceed with update?"; then
+        if [[ "$FIX_MODE" == "true" ]] || ask_yn "Proceed with update?"; then
             echo -e "${Y}●${NC} Updating Klipper-Backup..."
             loading_wheel "   Pulling changes..." &
             local loading_pid=$!
@@ -231,7 +256,7 @@ check_updates() {
             fi
             if git pull origin devel-v3.0 --ff-only > /dev/null 2>&1; then # Try fast-forward first
                 kill $loading_pid &>/dev/null || true
-                tput cnorm # Restore cursor visibility
+                tput_cnorm # Restore cursor visibility
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${G}✓ Pulling changes Done!${NC}"
                 if $stash_needed; then
@@ -253,7 +278,7 @@ check_updates() {
                 exec "$parent_path/install.sh"
             else
                 kill $loading_pid &>/dev/null || true
-                tput cnorm # Restore cursor visibility
+                tput_cnorm # Restore cursor visibility
                 wait $loading_pid &>/dev/null || true
                 echo -e "\r\033[K   ${R}✗ Error Updating Klipper-Backup (Maybe conflicting changes).${NC}"
                 echo -e "   ${Y}Attempting 'git reset --hard' and restarting script...${NC}"
@@ -422,9 +447,8 @@ patch_klipper_backup_update_manager() {
     local moonraker_conf_path="$KLIPPER_CONFIG_DIR/moonraker.conf" # Use derived path
     local moonraker_service_name="moonraker" # Default, adjust if needed (e.g., moonraker-punisher)
     # --- Determine Moonraker Service Name (heuristic) ---
-    # Derive the base name by removing '_data' suffix if present
-    # Example: "punisher_data" becomes "punisher", "printer_data" becomes "printer"
-    local klipper_base_name="${KLIPPER_DATA_DIR%_data}"
+            # klipper_base_name is already globally set based on KLIPPER_DATA_DIR in main()
+            # Example: "punisher_data" becomes "punisher", "printer_data" becomes "printer"    
     # Check for the specific service name first (e.g., moonraker-punisher.service)
     # Only check if the base name isn't the default 'printer' (which usually uses 'moonraker.service')
     if [[ "$klipper_base_name" != "printer" ]] && systemctl list-units --full -all | grep -q "moonraker-${klipper_base_name}.service"; then
@@ -463,7 +487,7 @@ patch_klipper_backup_update_manager() {
     fi
     # --- Ask user ---
     # ... (ask_yn) ...
-    if ask_yn "Add Klipper-Backup to Moonraker update manager?"; then
+    if [[ "$FIX_MODE" == "true" ]] || ask_yn "Add Klipper-Backup to Moonraker update manager?"; then
 
         echo "${Y}●${NC} Adding Klipper-Backup to update manager..."
         loading_wheel "   Patching $moonraker_conf_path..." &
@@ -598,11 +622,11 @@ install_filewatch_service() {
     local service_name # Will be set dynamically
     # Determine Dynamic Service Name
     # Only add suffix if base name is not 'printer' (default case)
-    # and if base name is different from data dir (i.e., _data was removed)
-    if [[ "$klipper_base_name" != "printer" && "$klipper_base_name" != "$KLIPPER_DATA_DIR" ]]; then
-        service_name="${base_service_name}-${klipper_base_name}"
+    # If klipper_base_name is "printer", use the default. Otherwise, add suffix.
+    if [[ "$klipper_base_name" == "printer" ]]; then
+        service_name="$base_service_name" # Use default name for "printer" instance
     else
-        service_name="$base_service_name" # Use default name
+        service_name="${base_service_name}-${klipper_base_name}"
     fi
     echo "Using filewatch service name: $service_name"
     local service_file_path="/etc/systemd/system/${service_name}.service"
@@ -632,7 +656,7 @@ install_filewatch_service() {
         echo "${G}✓ inotify-tools installed successfully.${NC}"
     fi
 
-    if ask_yn "Install Klipper-Backup File Watch Service ($service_name)?"; then
+    if [[ "$FIX_MODE" == "true" ]] || ask_yn "Install Klipper-Backup File Watch Service ($service_name)?"; then
         echo "${Y}●${NC} Installing $service_name..."
         loading_wheel "   Preparing service file..." &
         local loading_pid=$!
@@ -685,11 +709,11 @@ install_backup_service() {
     local service_name # Will be set dynamically
     # Determine Dynamic Service Name
     # Only add suffix if base name is not 'printer' (default case)
-    # and if base name is different from data dir (i.e., _data was removed)
-    if [[ "$klipper_base_name" != "printer" && "$klipper_base_name" != "$KLIPPER_DATA_DIR" ]]; then
-        service_name="${base_service_name}-${klipper_base_name}"
+    # If klipper_base_name is "printer", use the default. Otherwise, add suffix.
+    if [[ "$klipper_base_name" == "printer" ]]; then
+        service_name="$base_service_name" # Use default name for "printer" instance
     else
-        service_name="$base_service_name" # Use default name
+        service_name="${base_service_name}-${klipper_base_name}"
     fi
     echo "Using on-boot service name: $service_name"
     # --- End of Added Section ---
@@ -705,7 +729,7 @@ install_backup_service() {
         return
     fi
 
-    if ask_yn "Install Klipper-Backup On-Boot Service ($service_name)?"; then
+    if [[ "$FIX_MODE" == "true" ]] || ask_yn "Install Klipper-Backup On-Boot Service ($service_name)?"; then
         echo "${Y}●${NC} Installing $service_name..."
         loading_wheel "   Preparing service file..." &
         local loading_pid=$!
@@ -761,7 +785,7 @@ install_cron() {
     fi
 
     # Check if cron daemon is installed/running (only if not already found)
-    if ! command -v crontab &> /dev/null || ! pgrep -x cron > /dev/null; then
+    if ! command -v crontab &> /dev/null || ! pgrep -x cron > /dev/null && ! pgrep -x crond > /dev/null; then
         echo -e "${Y}● Cron service not detected or crontab command not found. Skipping cron task installation.${NC}\n"
         return 1 # Indicate failure to install
     fi
@@ -782,7 +806,7 @@ install_cron() {
     # --- End of minute calculation ---
 
     # Ask user
-    if ask_yn "Install cron task for ${klipper_base_name}? (automatic backup every 4 hours)"; then # Updated frequency in prompt
+    if [[ "$FIX_MODE" == "true" ]] || ask_yn "Install cron task for ${klipper_base_name}? (automatic backup every 4 hours)"; then
 
         echo "${Y}●${NC} Installing Cron Job for ${klipper_base_name}..."
         loading_wheel "   Adding cron job..." & local loading_pid=$!
@@ -816,7 +840,7 @@ install_cron() {
 # Replace these with actual implementations or ensure they exist in utils.func
 # service_exists() { systemctl list-units --full -all | grep -q "$1.service"; } # Basic service check
 # ask_yn() { local prompt="$1"; local response; while true; do read -p "$prompt (y/N)? " -n 1 -r response < /dev/tty; echo; case "$response" in [yY]) return 0;; [nN]|"") return 1;; *) echo "Please answer yes or no.";; esac; done; }
-# loading_wheel() { local chars="/-\|"; local delay=0.1; local message="$@"; tput civis; while true; do for i in {0..3}; do echo -ne "\r${chars:$i:1} $message"; sleep $delay; done; done & } # Basic wheel
+# loading_wheel() { local chars="/-\|"; local delay=0.1; local message="$@"; tput_civis; while true; do for i in {0..3}; do echo -ne "\r${chars:$i:1} $message"; sleep $delay; done; done & } # Basic wheel
 # clearUp() { tput ed; } # Clear from cursor to end of screen
 # wantsafter() { echo "network-online.target"; } # Default dependency
 # getUniqueid() { date +%s%N | md5sum | head -c 7; } # Simple unique ID
@@ -878,22 +902,42 @@ fi
 if [[ $EUID -eq 0 ]]; then
 echo "${R}Warning: Running this script as root is not recommended.${NC}"
 echo "${Y}Please run as a regular user with sudo privileges.${NC}"
-#   # Optionally exit: exit 1
-
+    exit 1 # Exit root user
+    main # Still call main, or handle error more strictly
+elif [ "$1" == "--fix" ]; then
+    FIX_MODE=true
+    echo -e "${Y}● Fix mode enabled. Attempting to repair/reinstall components with minimal interaction.${NC}"
+    if [[ -n "$2" ]]; then # If a second argument (directory name) is provided
+        TEMP_KLIPPER_DATA_DIR="$2"
+        if [[ -z "$TEMP_KLIPPER_DATA_DIR" ]]; then
+            echo -e "${R}Error: Directory name cannot be empty when provided as argument to --fix.${NC}"
+            exit 1
+        elif [[ ! -d "$HOME/$TEMP_KLIPPER_DATA_DIR" ]]; then
+            echo -e "${R}Error: Directory '$HOME/$TEMP_KLIPPER_DATA_DIR' not found.${NC}"
+            exit 1
+        elif [[ "$TEMP_KLIPPER_DATA_DIR" == *"/"* ]]; then
+            echo -e "${R}Error: Please enter only the directory name, not a path, for --fix argument.${NC}"
+            exit 1
+        else
+            KLIPPER_DATA_DIR="$TEMP_KLIPPER_DATA_DIR" # Set it globally
+            # Set derived paths (copied from main's prompt logic)
+            KLIPPER_BACKUP_INSTALL_DIR="$HOME/$KLIPPER_DATA_DIR/klipper-backup"
+            KLIPPER_CONFIG_DIR="$HOME/$KLIPPER_DATA_DIR/config"
+            ENV_FILE_PATH="$KLIPPER_BACKUP_INSTALL_DIR/.env"
+            # klipper_base_name will be derived in main()
+            echo "-----------------------------------------------------"
+            main # Call main, it will skip its own prompt due to KLIPPER_DATA_DIR being set
+        fi
+    else
+        # No second argument for --fix, main() will prompt for directory as usual
+        main
+    fi
 # Check if called with specific argument (e.g., for update check only)
 elif [ "$1" == "check_updates" ]; then
     # Need to know the target dir for check_updates
     # This mode might be less useful now without knowing the target dir beforehand
     echo "${Y}Warning: 'check_updates' argument requires manual directory navigation.${NC}"
     echo "${Y}Please run the script without arguments for interactive installation/update.${NC}"
-    # Example: Manually navigate and run check_updates if needed
-    # read -p "Enter path to klipper-backup installation: " update_path
-    # if [[ -d "$update_path" ]]; then
-    #    KLIPPER_BACKUP_INSTALL_DIR="$update_path"
-    #    check_updates
-    # else
-    #    echo "${R}Directory not found.${NC}"
-    # fi
 else
     # Run the main installation process
     main # <--- This call executes the main function

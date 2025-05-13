@@ -13,10 +13,82 @@ parent_path=$(
 source "$parent_path"/.env
 source "$parent_path"/utils/utils.func
 
+# Determine backup_path based on KLIPPER_INSTANCE_NAME from .env
+if [[ -n "$KLIPPER_INSTANCE_NAME" ]]; then
+    backup_path="$HOME/config_backup_${KLIPPER_INSTANCE_NAME}"
+else
+    # Fallback for older .env files or if KLIPPER_INSTANCE_NAME is somehow not set
+    echo -e "${Y}Warning: KLIPPER_INSTANCE_NAME not found or empty in .env. Defaulting to legacy backup path: $HOME/config_backup.${NC}" >&2
+    echo -e "${Y}It is recommended to re-run the installer for your Klipper instance(s) to update the .env file for proper multi-instance support.${NC}" >&2
+    backup_path="$HOME/config_backup"
+fi
+
+
+# --- Define Fix Function ---
+fix() {
+    echo -e "${Y}● Attempting to fix Klipper-Backup Git repository at $backup_path...${NC}"
+
+    if [ ! -d "$backup_path/.git" ]; then
+        echo -e "${R}Error: No Git repository found at '$backup_path/.git'. Cannot perform Git-related fixes.${NC}"
+        echo -e "${Y}Consider running the main backup script once to initialize the repository, or check backup_path in .env.${NC}"
+        exit 1 # Exit from fix function, script will terminate due to trap or next exit
+    fi
+
+    cd "$backup_path" || { echo -e "${R}Error: Could not navigate to '$backup_path'.${NC}"; exit 1; }
+
+    echo -e "${Y}  -> Resetting any uncommitted changes...${NC}"
+    if git reset --hard HEAD > /dev/null 2>&1; then
+        echo -e "${G}     ✓ Repository reset to HEAD.${NC}"
+    else
+        echo -e "${R}     ✗ Failed to reset repository. Manual intervention might be needed.${NC}"
+    fi
+
+    echo -e "${Y}  -> Cleaning untracked files (excluding ignored files)...${NC}"
+    if git clean -fd > /dev/null 2>&1; then # -d for directories, -f for force. Does not remove files in .gitignore.
+        echo -e "${G}     ✓ Untracked files removed.${NC}"
+    else
+        echo -e "${R}     ✗ Failed to clean untracked files.${NC}"
+    fi
+
+    echo -e "${Y}  -> Verifying Git remote 'origin'...${NC}"
+    local current_remote_url
+    current_remote_url=$(git remote get-url origin 2>/dev/null)
+    if [[ "$full_git_url" != "$(git remote get-url origin 2>/dev/null)" ]]; then
+        echo -e "${Y}     Remote URL mismatch. Current: '${current_remote_url:-Not set}', Expected: '$full_git_url'${NC}"
+        echo -e "${Y}     Setting remote 'origin' URL to: $full_git_url${NC}"
+        if git remote set-url origin "$full_git_url"; then
+            echo -e "${G}     ✓ Remote 'origin' URL updated.${NC}"
+        elif git remote add origin "$full_git_url"; then # If set-url failed because remote doesn't exist
+            echo -e "${G}     ✓ Remote 'origin' URL added.${NC}"
+        else
+            echo -e "${R}     ✗ Failed to set/add remote 'origin' URL.${NC}"
+        fi
+    else
+        echo -e "${G}     ✓ Remote 'origin' URL is correct.${NC}"
+    fi
+
+    echo -e "${Y}  -> Verifying Git user configuration...${NC}"
+    local expected_user_name="${commit_username:-$(whoami)}"
+    local expected_user_email="${commit_email:-$(whoami)@$(hostname --short)-$(date +%s%N | md5sum | head -c 7)}" # Consistent with main script logic
+
+    git config user.name "$expected_user_name"
+    git config user.email "$expected_user_email"
+    echo -e "${G}     ✓ Git user.name set to '$expected_user_name' and user.email set to '$expected_user_email'.${NC}"
+
+    echo -e "${Y}  -> Attempting to fetch from remote 'origin'...${NC}"
+    if git fetch origin > /dev/null 2>&1; then
+        echo -e "${G}     ✓ Successfully fetched from origin.${NC}"
+    else
+        echo -e "${R}     ✗ Failed to fetch from origin. Check network, repository URL, and token/SSH key permissions.${NC}"
+    fi
+
+    echo -e "${G}● Fix attempt completed.${NC}"
+    echo -e "${Y}Please review any messages above. You may want to try a backup now.${NC}"
+    exit 0 # Exit script after fix operation
+}
+
 # --- Define Lock Directory ---
 # Ensure backup_path is defined (it comes from .env or defaults)
-backup_folder="config_backup"
-backup_path="$HOME/$backup_folder"
 lock_dir="$backup_path/.script.lock" # Using a hidden dir inside the backup path
 
 # --- Attempt Lock Acquisition ---
@@ -36,13 +108,25 @@ fi
 
 loading_wheel "${Y}●${NC} Checking for installed dependencies" &
 loading_pid=$!
-check_dependencies "jq" "curl" "rsync"
-kill $loading_pid
+if command -v check_dependencies &>/dev/null; then
+    check_dependencies "jq" "curl" "rsync"
+else
+    # Fallback: basic check
+    for cmd in jq curl rsync; do
+        if ! command -v "$cmd" &>/dev/null; then
+            echo -e "${R}Error: Required dependency '$cmd' is not installed.${NC}"
+            kill $loading_pid &>/dev/null || true
+            exit 1
+        fi
+    done
+    echo -e "${Y}Warning: check_dependencies function missing, performed basic check.${NC}"
+fi
+kill $loading_pid &>/dev/null || true
+wait $loading_pid &>/dev/null || true
 echo -e "\r\033[K${G}●${NC} Checking for installed dependencies ${G}Done!${NC}\n"
+sleep 0.5 # Short pause
 
 # Do not touch these variables, the .env file and the documentation exist for this purpose
-backup_folder="config_backup"
-backup_path="$HOME/$backup_folder"
 allow_empty_commits=${allow_empty_commits:-true}
 use_filenames_as_commit_msg=${use_filenames_as_commit_msg:-false}
 git_protocol=${git_protocol:-"https"}
@@ -169,18 +253,22 @@ fi
 
 # Check if .git exists else init git repo
 if [ ! -d ".git" ]; then
-    mkdir .git
-    echo "[init]
-    defaultBranch = "$branch_name"" >>.git/config #Add desired branch name to config before init
-    git init
-# Check if the current checked out branch matches the branch name given in .env if not branch listed in .env
-elif [[ $(git symbolic-ref --short -q HEAD) != "$branch_name" ]]; then
-    echo -e "Branch: $branch_name in .env does not match the currently checked out branch of: $(git symbolic-ref --short -q HEAD)."
-    # Create branch if it does not exist
-    if git show-ref --quiet --verify "refs/heads/$branch_name"; then
-        git checkout "$branch_name" >/dev/null
+    if git --version | grep -qE 'git version (2\.(2[8-9]|[3-9][0-9]))'; then
+                git init --initial-branch="$branch_name" >/dev/null 2>&1
     else
-        git checkout -b "$branch_name" >/dev/null
+                git init >/dev/null 2>&1
+                git checkout -b "$branch_name" >/dev/null 2>&1
+    fi
+        # If .git directory exists, check branch
+        else # .git directory exists
+    current_branch=$(git symbolic-ref --short -q HEAD)
+    if [[ "$current_branch" != "$branch_name" ]]; then
+        echo -e "Branch: $branch_name in .env does not match the currently checked out branch of: $current_branch."
+        if git show-ref --quiet --verify "refs/heads/$branch_name"; then
+                    git checkout "$branch_name" >/dev/null 2>&1
+        else
+                    git checkout -b "$branch_name" >/dev/null 2>&1
+        fi
     fi
 fi
 
@@ -189,7 +277,7 @@ if [[ "$commit_username" != "" ]]; then
     git config user.name "$commit_username"
 else
     git config user.name "$(whoami)"
-    sed -i "s/^commit_username=.*/commit_username=\"$(whoami)\"/" "$parent_path"/.env
+    sed -i "s/^commit_username=.*/commit_username=\"$(whoami)\"/" "$parent_path/.env"
 fi
 
 # Check if email is defined in .env
@@ -199,7 +287,7 @@ else
     unique_id=$(date +%s%N | md5sum | head -c 7)
     user_email=$(whoami)@$(hostname --short)-$unique_id
     git config user.email "$user_email"
-    sed -i "s/^commit_email=.*/commit_email=\"$user_email\"/" "$parent_path"/.env
+    sed -i "s/^commit_email=.*/commit_email=\"$user_email\"/" "$parent_path/.env"
 fi
 
 # Check if remote origin already exists and create if one does not
@@ -220,50 +308,49 @@ if git ls-remote --exit-code --heads origin $branch_name >/dev/null 2>&1; then
     find "$backup_path" -maxdepth 1 -mindepth 1 ! -name '.git' ! -name 'README.md' -exec rm -rf {} \;
 fi
 
-cd "$HOME"
-# Iterate through backupPaths array and copy files to the backup folder while ignoring symbolic links
-for path in "${backupPaths[@]}"; do
-    fullPath="$HOME/$path"
-    if [[ -d "$fullPath" && ! -f "$fullPath" ]]; then
-        # Check if the directory path ends with only a '/'
-        if [[ "$path" =~ /$ ]]; then
-            # If it ends with '/', replace it with '/*'
-            backupPaths[$i]="$path*"
-        elif [[ -d "$path" ]]; then
-            # If it's a directory without '/', add '/*' at the end
-            backupPaths[$i]="$path/*"
+cd "$HOME" # Ensure paths are processed relative to HOME for rsync -R
+echo -e "${Y}● Copying files to backup directory...${NC}"
+shopt -s nullglob # Globs that match nothing expand to nothing
+for path_spec in "${backupPaths[@]}"; do # path_spec is like "printer_data/config/*" or "klipper_config/specific_file.cfg"
+    # Shell expands $path_spec here. For example, if path_spec is "dir/*",
+    # 'item' will iterate over 'dir/file1', 'dir/file2', etc.
+    # If path_spec is "dir/singlefile.cfg", 'item' will be "dir/singlefile.cfg".
+    for item in $path_spec; do
+        # Check if item exists (nullglob handles no matches by making the loop not run for that $item)
+        # but an explicit check can be useful if path_spec was not a glob.
+        if [ ! -e "$item" ] && [ ! -L "$item" ]; then
+            echo -e "${Y}Warning: File or pattern '$item' (from '$path_spec') not found in $HOME. Skipping.${NC}"
+            continue
         fi
-    fi
 
-    if compgen -G "$fullPath" >/dev/null; then
-        # Iterate over every file in the path
-        for file in $path; do
-            # Skip if file is symbolic link
-            if [ -h "$file" ]; then
-                echo "Skipping symbolic link: $file"
-            else
-                file=$(readlink -e "$file") # Get absolute path before copy (Allows usage of .. in filepath eg. ../../etc/fstab resolves to /etc/fstab )
-                rsync -aR "${file##"$HOME"/}" "$backup_path"
-            fi
-        done
+        if [ -h "$item" ]; then # Check if the item itself is a symlink
+            echo "Skipping symbolic link: $item"
+            continue
+        fi
+        # $item is now a path relative to $HOME (e.g., printer_data/config/printer.cfg)
+        # rsync -aR "$item" "$backup_path/" will create $backup_path/printer_data/config/printer.cfg
+        rsync -aR "$item" "$backup_path/"
     fi
 done
+shopt -u nullglob # Revert nullglob to default behavior if it's not desired globally
+echo -e "${G}✓ File copying complete.${NC}"
+cd "$backup_path" # Return to backup directory for git operations
 
 # Debug output: $backup_path content after running rsync
 [ "$debug_output" = true ] && begin_debug_line && echo -e "Content of \$backup_path after rsync:" && echo -ne "$(ls -la $backup_path)\n" && end_debug_line
 
-cp "$parent_path"/.gitignore "$backup_path/.gitignore"
+cp "$parent_path/.gitignore" "$backup_path/.gitignore"
 
 # utilize gits native exclusion file .gitignore to add files that should not be uploaded to remote.
 # Loop through exclude array and add each element to the end of .gitignore
-for i in ${exclude[@]}; do
+for i in "${exclude[@]}"; do
     # add new line to end of .gitignore if there is not one
     [[ $(tail -c1 "$backup_path/.gitignore" | wc -l) -eq 0 ]] && echo "" >>"$backup_path/.gitignore"
-    echo $i >>"$backup_path/.gitignore"
+    echo "$i" >>"$backup_path/.gitignore"
 done
 
 # Individual commit message, if no parameter is set, use the current timestamp as commit message
-if ! $commit_message_used; then
+if [ "$commit_message_used" != "true" ]; then
     commit_message="New backup from $(date +"%x - %X")"
 fi
 
@@ -276,6 +363,7 @@ fi
 # Show in commit message which files have been changed
 if $use_filenames_as_commit_msg; then
     commit_message=$(git diff --name-only "$branch_name" | xargs -n 1 basename | tr '\n' ' ')
+    [ -z "$commit_message" ] && commit_message="Backup: $(date +"%x - %X")"
 fi
 
 # Untrack all files so that any new excluded files are correctly ignored and deleted from remote
@@ -284,7 +372,7 @@ git add .
 git commit --no-gpg-sign -m "$commit_message"
 # Check if HEAD still matches remote (Means there are no updates to push) and create a empty commit just informing that there are no new updates to push
 if $allow_empty_commits && [[ $(git rev-parse HEAD) == $(git ls-remote $(git rev-parse --abbrev-ref @{u} 2>/dev/null | sed 's/\// /g') | cut -f1) ]]; then
-    git commit --no-gpg-sign --allow-empty -m "$commit_message - No new changes pushed"
+    git commit --no-gpg-sign --allow-empty -m "$commit_message - No new changes pushed" # --no-gpg-sign is set as I have verified commits set on GitHub
 fi
 git push -u origin "$branch_name"
 

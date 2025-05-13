@@ -15,6 +15,7 @@ Copy your important Klipper configuration files
 Store these copies safely. Track changes over time, so you can see what you changed and when.
 Allow you to restore a previous version of your configuration if something goes wrong.
 Protects your configuration from accidental deletion, corruption, or hardware failure.
+Prevents conflicts between manual and automated backups using a lock mechanism.
 
 * Version History:
 
@@ -33,7 +34,7 @@ Makes it easier to move your configuration to a new Raspberry Pi or PC/Laptop.
 * At its core, KLIPPER-BACKUP uses a combination of standard Linux tools:
 
 Copying Files: It uses commands like cp or rsync to gather the files you've told it to back up from their original
-locations (e.g., /home/<user_name>/<custom_name>_data/config/). Into a dedicated backup directory within the `klipper-backup` folder itself.
+locations (e.g., /home/<user_name>/<custom_name>_data/config/). It uses robust options (like `rsync -aR`) for effective archiving and relative path preservation into a dedicated backup directory within the `klipper-backup` folder itself.
 
 * Tracking Changes (Versioning):
 
@@ -55,13 +56,11 @@ like GitHub or GitLab. This provides an off-site backup, protecting you even if 
 * Note: These are general steps based on how such tools usually work.
 * The exact commands might differ slightly based on the specific scripts in each repository.
 
-## Crucially, review and edit the settings
-
 * Prerequisites:
 
 You need access to the command line (terminal/SSH) of the computer running Klipper (usually a Raspberry Pi or PC/LapTop).
-You need git installed `sudo apt update && sudo apt install git`.
-You might need other tools like rsync `sudo apt install rsync`, but these are often pre-installed with the (install.sh).
+You need `git` installed (`sudo apt update && sudo apt install git`).
+Other necessary tools like `rsync` and `inotify-tools` are typically handled by the `install.sh` script.
 
 ## Download KLIPPER-BACKUP
 
@@ -77,21 +76,26 @@ cd ~
 git clone -b devel-v3.0 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/klipper-backup
 ```
 
-* Go into the newly downloaded custom directory:
+* Go into the newly downloaded directory:
 
 ```shell
 cd ~/klipper-backup
 ```
 
-inside. This file tells the backup script what to back up and where to find it. You'll likely need to set:
-The path to your `.env` configuration  (e.g., /home/<user_name>/klipper-backup or /home/<user_name>/printer_data/klipper-backup/ or
+## We should be ready to install
+
+```shell
+./install.sh
+```
+
+
+Inside this file tells the backup script what to back up and where to find it. You'll be asked during installation this is automatically generated and set
+to the correct path to your `.env` configuration  (e.g., /home/<user_name>/klipper-backup or /home/<user_name>/printer_data/klipper-backup/ or
 /home/<user_name>/<custom_name>_data/klipper-backup/). The klipper-backup install directory, where the files that are to be backed up are located
 
 * Open this `shell_command.cfg`  in mainsail or fluidd to edit:
 
-* To execute the main backup script manually. edit the `shell_command.cfg` file:
-
-## Example of shell_command.cfg (remember when editing to remove <> as well)
+## Example of shell_command.cfg if it failed to populate correctly(! remember to remove <> if copy/pasting)
 
 ```shell
 [gcode_shell_command update_git_script]
@@ -100,7 +104,7 @@ timeout: 90.0
 verbose: True
 ```
 
-* Also you will need to create a Macro:
+* ! Also you will need to create a Macro:
 
 ```shell
 [gcode_macro BACKUP_GITHUB]
@@ -108,13 +112,20 @@ gcode:
   RUN_SHELL_COMMAND CMD=update_git_script
 ```
 
-## Before we install we need to edit some files within `~/klipper-backup` directory, using a tool like (nano or Notepad++)
+* Restart Klipper or Moonraker:
 
-## We should be ready to install
+## If you need to restart the Klipper service for the changes here is an example
 
 ```shell
-./install.sh
+sudo systemctl restart klipper-<custom_name>.service
 ```
+
+## and Moonraker service example
+
+```shell
+sudo systemctl restart moonraker-<custom_name>.service
+```
+
 
 ## Restoring Files (Conceptual) this is in the works in (restore_dev & restore_beta branches)
 
@@ -138,19 +149,6 @@ Be careful, this overwrites the version of the file currently in your backup dir
 Manually copy the restored file(s) from the KLIPPER-BACKUP directory back to their original
 Klipper location (e.g., copy klipper_config/printer.cfg back to /home/<user_name>/klipper_config/printer.cfg).
 
-* Restart Klipper or Moonraker:
-
-## If you need to restart the Klipper service for the changes here is an example
-
-```shell
-sudo systemctl restart klipper-<custom_name>.service
-```
-
-## and Moonraker service example
-
-```shell
-sudo systemctl restart moonraker-<custom_name>.service
-```
 
 README.md: Documentation explaining how to use this specific version of KLIPPER-BACKUP, including any specific setup steps or features. Always read this!
 .gitignore: A special git file that lists files or patterns git should ignore (like temporary files, logs within the backup dir itself, or maybe the .bak files).
