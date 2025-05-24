@@ -11,7 +11,7 @@ Thumbs.db
 .idea/
 *.iml
 .venv
-.spellcheckrc
+.shellcheckrc
 
 # Build artifacts
 dist/
