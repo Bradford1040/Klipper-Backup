@@ -55,88 +55,7 @@ declare FIX_MODE=false # Flag for --fix mode
 # This trap runs on normal exit (0) or error exit (non-zero)
 trap 'stty echo' EXIT
 
-# --- Function Definitions ---
-dependencies() { :; }
-install_repo() { :; }
-check_updates() { :; } # Called by install_repo
-configure() { :; }
-patch_klipper_backup_update_manager() { :; }
-install_shell_command_config() { :; }
-install_inotify_from_source() { :; } # Helper for filewatch
-install_filewatch_service() { :; } 
-install_backup_service() { :; }    
-install_cron() { :; }              
-
-
-# --- Main Installation Function ---
-main() {
-    clear
-    sudo -v || { echo "${R}Error: sudo privileges required.${NC}"; exit 1; }
-    # --- Get Klipper Data Directory from User ---
-    if [[ -z "$KLIPPER_DATA_DIR" ]]; then # Only prompt if not already set (e.g., by --fix <dir_name>)
-        logo # Show logo first for better presentation
-        echo "-----------------------------------------------------"
-        echo " Klipper Installation Target Configuration"
-        echo "-----------------------------------------------------"
-        echo "Please enter the name of your main Klipper data directory."
-        echo "This directory should exist in your home folder ($HOME)."
-        echo "Examples: printer_data, voron_data, punisher_data"
-        echo ""
-        local KLIPPER_DATA_DIR_INPUT # Use a local variable for reading input
-        while true; do
-            # Using read -r -p for better compatibility if utils.sh isn't sourced yet or ask_textinput isn't ideal here
-            read -r -p "Enter Klipper data directory name: " KLIPPER_DATA_DIR_INPUT < /dev/tty # Read directly from terminal
-            if [[ -z "$KLIPPER_DATA_DIR_INPUT" ]]; then
-                echo "${R}Error: Directory name cannot be empty.${NC}"
-            elif [[ ! -d "$HOME/$KLIPPER_DATA_DIR_INPUT" ]]; then
-                echo "${R}Error: Directory '$HOME/$KLIPPER_DATA_DIR_INPUT' not found.${NC}"
-                echo "${Y}Please ensure the directory exists before running this script.${NC}"
-            elif [[ ! "$KLIPPER_DATA_DIR_INPUT" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-                echo "${R}Error: Directory name may only contain letters, numbers, underscores, and dashes.${NC}"
-            else
-                KLIPPER_DATA_DIR="$KLIPPER_DATA_DIR_INPUT" # Set the global variable
-                # --- Set derived paths globally ---
-                KLIPPER_BACKUP_INSTALL_DIR="$HOME/$KLIPPER_DATA_DIR/klipper-backup"
-                KLIPPER_CONFIG_DIR="$HOME/$KLIPPER_DATA_DIR/config" # Standard location
-                ENV_FILE_PATH="$KLIPPER_BACKUP_INSTALL_DIR/.env"
-                echo "${G}Using '$HOME/$KLIPPER_DATA_DIR' as the Klipper data directory.${NC}"
-                echo "Klipper-Backup will be installed into: $KLIPPER_BACKUP_INSTALL_DIR"
-                echo "-----------------------------------------------------"
-                sleep 1 # Give user a moment to read
-                break # Exit loop, input is valid
-            fi
-        done # <<< THIS 'done' MARKS THE END OF THE LOOP
-    fi # End of KLIPPER_DATA_DIR prompt block if it ran
-
-    # At this point, KLIPPER_DATA_DIR is set (either from prompt above, or from --fix <dir_name> before main was called)
-    # KLIPPER_BACKUP_INSTALL_DIR, KLIPPER_CONFIG_DIR, ENV_FILE_PATH are also set if prompt ran,
-    # or if --fix <dir_name> ran.
-
-    # --- Derive Klipper Base Name ---
-    # This is derived from the finalized KLIPPER_DATA_DIR.
-    klipper_base_name="${KLIPPER_DATA_DIR%_data}"
-    echo "Using Klipper data directory: $HOME/$KLIPPER_DATA_DIR"
-    echo "Derived Klipper instance base name: $klipper_base_name"
-    # --- Proceed with Installation Steps ---
-    dependencies
-    install_repo # This also handles updates
-    configure
-    install_shell_command_config
-    patch_klipper_backup_update_manager # Uses klipper_base_name internally now
-    install_filewatch_service # Will now use global klipper_base_name
-    install_backup_service # Will now use global klipper_base_name
-    install_cron
-    # <<< END OF FINAL MESSAGES
-    echo -e "\n${G}● Installation Complete!${NC}"
-    echo -e "  Klipper-Backup installed in: ${C}$KLIPPER_BACKUP_INSTALL_DIR${NC}"
-    echo -e "  Configuration file (.env): ${C}$ENV_FILE_PATH${NC}"
-    echo -e "${Y}Please review the .env file, especially 'backupPaths' and 'exclude'.${NC}"
-    echo -e "${Y}If you added the shell command, edit '$KLIPPER_CONFIG_DIR/shell_command.cfg' to replace placeholders.${NC}"
-    echo -e "${Y}Remember to configure your GitHub repository secrets if needed for private repos.${NC}"
-    # <<< END OF FINAL MESSAGES
-
-} # <<< THIS IS THE END OF THE main() FUNCTION
-
+# --- Helper Function Definitions (Full Implementations First) ---
 
 # --- Dependency Check ---
 dependencies() {
@@ -312,7 +231,6 @@ check_updates() {
     cd "$parent_path" || echo "${Y}Warning: Could not return to script directory '$parent_path'.${NC}"
 }
 
-
 # --- Configure .env File ---
 configure() {
     local ghtoken_username=""
@@ -458,7 +376,6 @@ configure() {
     echo ""
 }
 
-
 # --- Patch Moonraker Update Manager ---
 patch_klipper_backup_update_manager() {
     local moonraker_conf_path="$KLIPPER_CONFIG_DIR/moonraker.conf" # Use derived path
@@ -542,7 +459,6 @@ patch_klipper_backup_update_manager() {
     fi
 }
 
-
 # Function to handle shell_command.cfg setup
 install_shell_command_config() {
 local source_example="$parent_path/shell_command.cfg.example"
@@ -591,7 +507,6 @@ else
 fi
 echo ">>> Finished processing Klipper shell_command configuration."
 }
-
 
 # inotify-tools installation/compilation logic
 # Helper function for compiling inotify-tools
@@ -721,7 +636,6 @@ install_filewatch_service() {
         echo -e "${M}●${NC} Installing $service_name ${M}skipped!${NC}\n"
     fi
 }
-
 
 # --- Install Backup Service (On Boot) ---
 install_backup_service() {
@@ -855,19 +769,6 @@ install_cron() {
     return 0 # Indicate success or skipped
 }
 
-
-# --- Dummy/Placeholder functions (if not fully defined in utils.sh) ---
-# Replace these with actual implementations or ensure they exist in utils.sh
-# service_exists() { systemctl list-units --full -all | grep -q "$1.service"; } # Basic service check
-# ask_yn() { local prompt="$1"; local response; while true; do read -p "$prompt (y/N)? " -n 1 -r response < /dev/tty; echo; case "$response" in [yY]) return 0;; [nN]|"") return 1;; *) echo "Please answer yes or no.";; esac; done; }
-# loading_wheel() { local chars="/-\|"; local delay=0.1; local message="$@"; tput_civis; while true; do for i in {0..3}; do echo -ne "\r${chars:$i:1} $message"; sleep $delay; done; done & } # Basic wheel
-# clearUp() { tput ed; } # Clear from cursor to end of screen
-# wantsafter() { echo "network-online.target"; } # Default dependency
-# getUniqueid() { date +%s%N | md5sum | head -c 7; } # Simple unique ID
-# logo() { echo "--- Klipper Backup Installer ---"; } # Simple logo
-# ask_textinput() { local prompt="$1"; local default="$2"; local response; read -p "$prompt [$default]: " response < /dev/tty; echo "${response:-$default}"; } # Basic text input
-
-
 # Function to check GitHub Token validity using the API
 check_ghToken() {
 local token="$1"
@@ -915,6 +816,85 @@ if [ -z "$token" ]; then
 fi
 }
 
+# --- Main Installation Function ---
+main() {
+    clear
+    sudo -v || { echo "${R}Error: sudo privileges required.${NC}"; exit 1; }
+    # --- Get Klipper Data Directory from User ---
+    if [[ -z "$KLIPPER_DATA_DIR" ]]; then # Only prompt if not already set (e.g., by --fix <dir_name>)
+        logo # Show logo first for better presentation
+        echo "-----------------------------------------------------"
+        echo " Klipper Installation Target Configuration"
+        echo "-----------------------------------------------------"
+        echo "Please enter the name of your main Klipper data directory."
+        echo "This directory should exist in your home folder ($HOME)."
+        echo "Examples: printer_data, voron_data, punisher_data"
+        echo ""
+        local KLIPPER_DATA_DIR_INPUT # Use a local variable for reading input
+        while true; do
+            # Using read -r -p for better compatibility if utils.sh isn't sourced yet or ask_textinput isn't ideal here
+            read -r -p "Enter Klipper data directory name: " KLIPPER_DATA_DIR_INPUT < /dev/tty # Read directly from terminal
+            if [[ -z "$KLIPPER_DATA_DIR_INPUT" ]]; then
+                echo "${R}Error: Directory name cannot be empty.${NC}"
+            elif [[ ! -d "$HOME/$KLIPPER_DATA_DIR_INPUT" ]]; then
+                echo "${R}Error: Directory '$HOME/$KLIPPER_DATA_DIR_INPUT' not found.${NC}"
+                echo "${Y}Please ensure the directory exists before running this script.${NC}"
+            elif [[ ! "$KLIPPER_DATA_DIR_INPUT" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+                echo "${R}Error: Directory name may only contain letters, numbers, underscores, and dashes.${NC}"
+            else
+                KLIPPER_DATA_DIR="$KLIPPER_DATA_DIR_INPUT" # Set the global variable
+                # --- Set derived paths globally ---
+                KLIPPER_BACKUP_INSTALL_DIR="$HOME/$KLIPPER_DATA_DIR/klipper-backup"
+                KLIPPER_CONFIG_DIR="$HOME/$KLIPPER_DATA_DIR/config" # Standard location
+                ENV_FILE_PATH="$KLIPPER_BACKUP_INSTALL_DIR/.env"
+                echo "${G}Using '$HOME/$KLIPPER_DATA_DIR' as the Klipper data directory.${NC}"
+                echo "Klipper-Backup will be installed into: $KLIPPER_BACKUP_INSTALL_DIR"
+                echo "-----------------------------------------------------"
+                sleep 1 # Give user a moment to read
+                break # Exit loop, input is valid
+            fi
+        done # <<< THIS 'done' MARKS THE END OF THE LOOP
+    fi # End of KLIPPER_DATA_DIR prompt block if it ran
+
+    # At this point, KLIPPER_DATA_DIR is set (either from prompt above, or from --fix <dir_name> before main was called)
+    # KLIPPER_BACKUP_INSTALL_DIR, KLIPPER_CONFIG_DIR, ENV_FILE_PATH are also set if prompt ran,
+    # or if --fix <dir_name> ran.
+
+    # --- Derive Klipper Base Name ---
+    # This is derived from the finalized KLIPPER_DATA_DIR.
+    klipper_base_name="${KLIPPER_DATA_DIR%_data}"
+    echo "Using Klipper data directory: $HOME/$KLIPPER_DATA_DIR"
+    echo "Derived Klipper instance base name: $klipper_base_name"
+    # --- Proceed with Installation Steps ---
+    dependencies
+    install_repo # This also handles updates
+    configure
+    install_shell_command_config
+    patch_klipper_backup_update_manager # Uses klipper_base_name internally now
+    install_filewatch_service # Will now use global klipper_base_name
+    install_backup_service # Will now use global klipper_base_name
+    install_cron
+    # <<< END OF FINAL MESSAGES
+    echo -e "\n${G}● Installation Complete!${NC}"
+    echo -e "  Klipper-Backup installed in: ${C}$KLIPPER_BACKUP_INSTALL_DIR${NC}"
+    echo -e "  Configuration file (.env): ${C}$ENV_FILE_PATH${NC}"
+    echo -e "${Y}Please review the .env file, especially 'backupPaths' and 'exclude'.${NC}"
+    echo -e "${Y}If you added the shell command, edit '$KLIPPER_CONFIG_DIR/shell_command.cfg' to replace placeholders.${NC}"
+    echo -e "${Y}Remember to configure your GitHub repository secrets if needed for private repos.${NC}"
+    # <<< END OF FINAL MESSAGES
+
+} # <<< THIS IS THE END OF THE main() FUNCTION
+
+# --- Dummy/Placeholder functions (if not fully defined in utils.sh) ---
+# Replace these with actual implementations or ensure they exist in utils.sh
+# service_exists() { systemctl list-units --full -all | grep -q "$1.service"; } # Basic service check
+# ask_yn() { local prompt="$1"; local response; while true; do read -p "$prompt (y/N)? " -n 1 -r response < /dev/tty; echo; case "$response" in [yY]) return 0;; [nN]|"") return 1;; *) echo "Please answer yes or no.";; esac; done; }
+# loading_wheel() { local chars="/-\|"; local delay=0.1; local message="$@"; tput_civis; while true; do for i in {0..3}; do echo -ne "\r${chars:$i:1} $message"; sleep $delay; done; done & } # Basic wheel
+# clearUp() { tput ed; } # Clear from cursor to end of screen
+# wantsafter() { echo "network-online.target"; } # Default dependency
+# getUniqueid() { date +%s%N | md5sum | head -c 7; } # Simple unique ID
+# logo() { echo "--- Klipper Backup Installer ---"; } # Simple logo
+# ask_textinput() { local prompt="$1"; local default="$2"; local response; read -p "$prompt [$default]: " response < /dev/tty; echo "${response:-$default}"; } # Basic text input
 
 
 # --- Script Entry Point ---
@@ -923,7 +903,7 @@ if [[ $EUID -eq 0 ]]; then
 echo "${R}Warning: Running this script as root is not recommended.${NC}"
 echo "${Y}Please run as a regular user with sudo privileges.${NC}"
     exit 1 # Exit root user
-    main # Still call main, or handle error more strictly
+    
 elif [ "$1" == "--fix" ]; then
     FIX_MODE=true
     echo -e "${Y}● Fix mode enabled. Attempting to repair/reinstall components with minimal interaction.${NC}"
