@@ -10,7 +10,7 @@ scriptsh_parent_path=$(
 
 envpath="$scriptsh_parent_path/.env"
 
-# shellcheck source=../.env
+# shellcheck source=../.env.example
 source "$envpath"
 cp "$envpath" "$envpath.bkp"
 
@@ -31,7 +31,7 @@ while IFS= read -r line; do
         fi
     fi
     configOptions+=("$line")
-done < <(grep -m 1 -n "# Individual file syntax:" $envpath | cut -d ":" -f 1 | xargs -I {} expr {} - 1 | xargs -I {} head -n {} $envpath)
+done < <(grep -m 1 -n "# Individual file syntax:" "$envpath" | cut -d ":" -f 1 | xargs -I {} expr {} - 1 | xargs -I {} head -n {} "$envpath")
 
 
 while IFS= read -r path; do
@@ -76,10 +76,10 @@ $(echo -e "${configOptions[@]}")
 # Using the above example the script will search for /home/{username}/printer_data/config/* and /home/{username}/printer_data/config/printer.cfg
 # When backing up a folder you should always have /* at the end of the path so that files inside the folder are properly searched
 
-$(echo -e $newbackupPaths)
+$(echo -e "$newbackupPaths")
 
 # Array of strings in .gitignore pattern git format https://git-scm.com/docs/gitignore#_pattern_format for files that should not be uploaded to the remote repo
 # New additions must be enclosed in double quotes and should follow the pattern format as noted in the above link
 
-$(echo -e $newexclude)
+$(echo -e "$newexclude")
 ENVFILE

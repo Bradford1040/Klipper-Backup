@@ -63,7 +63,7 @@ exclude_pattern=".swp|.tmp|printer-[0-9]*_[0-9]*.cfg|.bak|.bkp"
 
 # --- Call inotifywait with the generated watchlist ---
 echo "Starting inotifywait..." # Debugging info
-inotifywait -mrP -e close_write -e move -e delete --exclude "$exclude_pattern" $watchlist |
+inotifywait -mrP -e close_write -e move -e delete --exclude "$exclude_pattern" "$watchlist" |
 while read -r path event file; do
     if [ -z "$file" ]; then
         file=$(basename "$path")
