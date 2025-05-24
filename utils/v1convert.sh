@@ -1,14 +1,16 @@
+#!/usr/bin/env bash
 backupPaths=()
 configOptions=()
 
 scriptsh_parent_path=$(
-    cd "$(dirname "${BASH_SOURCE[0]}")"
+    cd "$(dirname "${BASH_SOURCE[0]}")" || exit
     cd ..
     pwd -P
 )
 
 envpath="$scriptsh_parent_path/.env"
 
+# shellcheck source=../.env
 source "$envpath"
 cp "$envpath" "$envpath.bkp"
 
@@ -28,7 +30,7 @@ while IFS= read -r line; do
             fi
         fi
     fi
-    configOptions+="$line \n"
+    configOptions+=("$line")
 done < <(grep -m 1 -n "# Individual file syntax:" $envpath | cut -d ":" -f 1 | xargs -I {} expr {} - 1 | xargs -I {} head -n {} $envpath)
 
 
@@ -51,6 +53,8 @@ for path in "${backupPaths[@]}"; do
 done
 newbackupPaths+=")"
 
+exclude=()  # Initialize exclude as an empty array
+
 newexclude="exclude=( \\ \n"
 for extension in "${exclude[@]}"; do
     newexclude+=" \"$extension\" \\ \n"
@@ -59,7 +63,7 @@ newexclude+=")"
 
 rm "$envpath"
 cat >>"$envpath" <<ENVFILE
-$(echo -e ${configOptions[@]})
+$(echo -e "${configOptions[@]}")
 # Backup paths
 #  Note: script.sh starts its search in \$HOME which is /home/{username}/
 # The array accepts folders or files like the following example

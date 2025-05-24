@@ -1,9 +1,12 @@
-R=$'\e[1;91m' # Red ${R}
-G=$'\e[1;92m' # Green ${G}
-Y=$'\e[1;93m' # Yellow ${Y}
-M=$'\e[1;95m' # Magenta ${M}
-C=$'\e[96m'   # Cyan ${C}
-NC=$'\e[0m'   # No Color ${NC}
+#!/usr/bin/env bash
+
+export R=$'\033[1;91m' # Red ${R}
+export G=$'\033[1;92m' # Green ${G}
+export Y=$'\033[1;93m' # Yellow ${Y}
+export M=$'\033[1;95m' # Magenta ${M}
+export C=$'\033[96m'   # Cyan ${C}
+export NC=$'\033[0m'   # No Color ${NC}
+
 
 # Create unique id for git email
 getUniqueid() {
@@ -25,7 +28,7 @@ is_ssh() {
 loading_wheel() {
     local chars="/-\|"
     local delay=0.1
-    local message="$@"
+    local message="$*" # Use "$*" for clarity when assigning all args to a single string
     if is_ssh; then
         # Simpler animation for SSH: just dots
         echo -n "$message"
@@ -41,22 +44,24 @@ loading_wheel() {
                 sleep $delay
             done
         done
-        tput cnorm
+        # tput cnorm was here, but it's unreachable due to the infinite loop.
+        # Cursor restoration (tput cnorm) should be handled by the script
+        # that backgrounds and then kills this loading_wheel.
     fi
 }
 
 getcursor() {
 	tput cup 999 0; 
 	echo -ne "\033[6n"; 
-	read -sdR CURPOS; CURPOS=${CURPOS#*[}; 
-	echo ${CURPOS%;*}; 
+	read -rsdR CURPOS; CURPOS=${CURPOS#*[}; 
+	echo "${CURPOS%;*}"; 
 } # stronger getcursor
 
 run_command() {
     command=$1
     loading_wheel "   ${Y}●${NC} Running $command" &
     loading_pid=$!
-    sudo $command >/dev/null 2>&1
+    sudo "$command" >/dev/null 2>&1
     kill $loading_pid
     echo -e "\r\033[K   ${G}●${NC} Running $command ${G}Done!${NC}"
 }
@@ -126,7 +131,7 @@ ask_textinput() {
 	local prompt="$1"; 
 	local default="$2"; 
 	local response; 
-		read -p "$prompt [$default]: " response < /dev/tty; 
+		read -rp "$prompt [$default]: " response < /dev/tty; 
 		echo "${response:-$default}"; 
 } # Basic text input
 
@@ -138,9 +143,11 @@ function move_cursor() {
 # Function to display the menu and return status codes
 function menu() {
     choice=1
+    # Define the starting row for the menu. Assumed to be 1 as 'clear' is typically called before 'menu'.
+    local menu_start_row=1
     while true; do
         # Highlight the current choice
-        if [ $choice -eq 1 ]; then
+        if [ "$choice" -eq 1 ]; then
             echo -e "\e[7m1. Confirm\e[0m"
             echo "2. Re-enter"
         else
@@ -148,19 +155,19 @@ function menu() {
             echo -e "\e[7m2. Re-enter\e[0m"
         fi
 
-        read -sn 1 key
+        read -rsn 1 key
 
         case $key in
         [1-2]) # Number keys 1 and 2
             choice=$key
             ;;
         A) # Up arrow
-            if [ $choice -eq 2 ]; then
+            if [ "$choice" -eq 2 ]; then
                 ((choice--))
             fi
             ;;
         B) # Down arrow
-            if [ $choice -eq 1 ]; then
+            if [ "$choice" -eq 1 ]; then
                 ((choice++))
             fi
             ;;
@@ -177,7 +184,7 @@ function menu() {
             ;;
         esac
 
-        move_cursor $pos2 0
+        move_cursor "$menu_start_row" 0
 
     done
 }
@@ -190,10 +197,10 @@ check_ghToken() {
 
     if [[ $response =~ "message" ]]; then
         ghtoken_username=""
-        echo $ghtoken_username
+        echo "$ghtoken_username"
     else
-        ghtoken_username=$(echo $response | jq -r '.login')
-        echo $ghtoken_username
+        ghtoken_username=$(echo "$response" | jq -r '.login')
+        echo "$ghtoken_username"
     fi
 }
 
@@ -209,7 +216,7 @@ checkinotify() {
     latest_version=$(echo "$latest_release" | jq -r '.tag_name')
 
     # Compare the installed version with the latest version
-    if [[ $local_version == $latest_version ]]; then
+    if [[ $local_version == "$latest_version" ]]; then
         return 0 #Local matches latest
     else
         return 1 #Local does not match latest
@@ -247,13 +254,13 @@ removeOldInotify() {
     for pkg in "${oldInotify[@]}"; do
         # Check the package manager and attempt a silent install
         if command -v apt-get &>/dev/null; then
-            sudo apt remove -y $pkg >/dev/null 2>&1
+            sudo apt remove -y "$pkg" >/dev/null 2>&1
         elif command -v dnf &>/dev/null; then
-            sudo dnf remove -y $pkg >/dev/null 2>&1
+            sudo dnf remove -y "$pkg" >/dev/null 2>&1
         elif command -v pacman &>/dev/null; then
-            sudo pacman -Rs --noconfirm $pkg >/dev/null 2>&1
+            sudo pacman -Rs --noconfirm "$pkg" >/dev/null 2>&1
         elif command -v apk &>/dev/null; then
-            sudo apk remove $pkg >/dev/null 2>&1
+            sudo apk remove "$pkg" >/dev/null 2>&1
         else
             echo "Unsupported package manager. Please remove inotify-tools manually."
             return 1
@@ -262,7 +269,7 @@ removeOldInotify() {
 }
 
 show_help(){
-    echo "Usage: $(basename $0) [OPTION]..."
+    echo "Usage: $(basename "$0") [OPTION]..."
     echo "Klipper-Backup is a script for manual or automated Klipper GitHub backups. It's Lightweight, pragmatic and comfortable."
     echo "https://github.com/Bradford1040/klipper-backup/tree/devel-v3.0"
     echo "https://klipperbackup.xyz"
@@ -274,24 +281,10 @@ show_help(){
     echo "  -d, --debug                    debugging output"
     echo
     echo "Examples:"
-    echo "  $(basename $0) --help"
-    echo "  $(basename $0) --commit_message \"My own commit message\""
-    echo "  $(basename $0) --fix"
-    echo "  $(basename $0) --debug"
-}
-
-fix(){
-    loading_wheel "${Y}●{NC} Delete config_backup folder" &
-    loading_pid=$!
-    if [ ! -d "$HOME/$backup_folder" ]; then
-        echo -e "\r\033[K${R}config_backup folder does exist${NC}\n"
-    else
-        rm -rf $HOME/$backup_folder
-        echo -e "\r\033[K${G}●${NC} Delete config_backup folder ${G}Done!${NC}\n"
-    fi
-    kill $loading_pid
-    exit
-
+    echo "  $(basename "$0") --help"
+    echo "  $(basename "$0") --commit_message \"My own commit message\""
+    echo "  $(basename "$0") --fix"
+    echo "  $(basename "$0") --debug"
 }
 
 begin_debug_line(){

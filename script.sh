@@ -5,7 +5,7 @@ shopt -s dotglob
 
 # Set parent directory path
 parent_path=$(
-    cd "$(dirname "${BASH_SOURCE[0]}")"
+    cd "$(dirname "${BASH_SOURCE[0]}")" || exit
     pwd -P
 )
 
@@ -14,8 +14,15 @@ if [[ ! -f "$parent_path/.installed_version" ]]; then
 fi
 
 # Initialize variables from .env file
+# shellcheck disable=SC1091
 source "$parent_path"/.env
-source "$parent_path"/utils/utils.func
+source "$parent_path"/utils/utils.sh
+
+# Ensure github_username and github_repository are set from .env
+if [[ -z "$github_username" || -z "$github_repository" ]]; then
+    echo -e "${R}Error: github_username or github_repository is not set in .env. Please set these variables.${NC}"
+    exit 1
+fi
 
 REPO_VERSION="3.0.0"
 if [[ -f "$parent_path/.installed_version" ]]; then
@@ -150,11 +157,16 @@ use_filenames_as_commit_msg=${use_filenames_as_commit_msg:-false}
 git_protocol=${git_protocol:-"https"}
 git_host=${git_host:-"github.com"}
 ssh_user=${ssh_user:-"git"}
+branch_name=${branch_name:-"main"}
 
 if [[ $git_protocol == "ssh" ]]; then
-    full_git_url=$git_protocol"://"$ssh_user"@"$git_host"/"$github_username"/"$github_repository".git"
+    full_git_url="${git_protocol}://${ssh_user}@${git_host}/${github_username}/${github_repository}.git"
 else
-    full_git_url=$git_protocol"://"$github_token"@"$git_host"/"$github_username"/"$github_repository".git"
+    if [[ -z "${github_token:-}" ]]; then
+        echo -e "${R}Error: github_token is not set in .env. Please set this variable for HTTPS access.${NC}"
+        exit 1
+    fi
+    full_git_url="${git_protocol}://${github_token}@${git_host}/${github_username}/${github_repository}.git"
 fi
 
 # Attempt to parse 'exclude' if it's defined as a string in .env
@@ -162,16 +174,16 @@ if declare -p exclude &>/dev/null; then # If exclude is declared
     # Check if 'exclude' is a simple string variable (not an array)
     if [[ "$(declare -p exclude)" =~ ^declare\ --\ exclude= ]]; then
         echo "[Info] 'exclude' from .env is a string. Attempting to parse into an array."
-        local temp_exclude_string="$exclude" # Copy the string value
+        temp_exclude_string="$exclude" # Copy the string value
         read -r -a exclude <<< "$temp_exclude_string" # Re-assign to exclude as an array
-        echo "[Info] Parsed 'exclude' array elements: ${exclude[@]}"
+        echo "[Info] Parsed 'exclude' array elements: ${exclude[*]}"
     # Check if 'exclude' is an array of a single element which itself is a space-separated list
     elif [[ "$(declare -p exclude)" =~ ^declare\ -a\ exclude=\(\[0\]= && ${#exclude[@]} -eq 1 && "${exclude[0]}" == *" "* ]]; then
         # This handles cases like exclude=("pattern1 pattern2 pattern3") from .env
         echo "[Info] 'exclude' from .env is an array of a single string list. Attempting to parse."
-        local temp_exclude_string="${exclude[0]}"
+        temp_exclude_string="${exclude[0]}"
         read -r -a exclude <<< "$temp_exclude_string"
-        echo "[Info] Parsed 'exclude' array elements: ${exclude[@]}"
+        echo "[Info] Parsed 'exclude' array elements: ${exclude[*]}"
     fi
     # If 'exclude' was already a proper multi-element array from .env,
     # e.g., exclude=("pattern1" "pattern2"), it will pass through this logic untouched.
@@ -186,14 +198,14 @@ if ! declare -p exclude &>/dev/null || [ ${#exclude[@]} -eq 0 ]; then
     )
     exclude=("${default_exclude_patterns[@]}")
     echo "[Info] Using default exclude patterns for rsync and .gitignore."
-    echo "DEBUG: Effective exclude patterns are: ${exclude[@]}" # Temporary debug line
+    echo "DEBUG: Effective exclude patterns are:" "${exclude[@]}" # Temporary debug line
 fi
 
 # Required for checking the use of the commit_message and debug parameter
 commit_message_used=false
 debug_output=false
 # Collect args before they are consumed by getopts
-args="$@"
+args=("$@")
 
 # Check parameters
 while [[ $# -gt 0 ]]; do
@@ -204,7 +216,6 @@ case "$1" in
     ;;
     -f|--fix)
     fix
-    shift
     ;;
     -c|--commit_message)
     if  [[ -z "$2" || "$2" =~ ^- ]]; then
@@ -229,15 +240,15 @@ esac
 done
 
 # Check for updates
-[ $(git -C "$parent_path" rev-parse HEAD) = $(git -C "$parent_path" ls-remote $(git -C "$parent_path" rev-parse --abbrev-ref '@{u}' | sed 's/\// /g') | cut -f1) ] && echo -e "Klipper-Backup is up to date\n" || echo -e "${Y}●${NC} Update for Klipper-Backup ${Y}Available!${NC}\n"
+[ "$(git -C "$parent_path" rev-parse HEAD)" = "$(git -C "$parent_path" ls-remote "$(git -C "$parent_path" rev-parse --abbrev-ref '@{u}' | sed 's/\// /g')" | cut -f1)" ] && echo -e "Klipper-Backup is up to date\n" || echo -e "${Y}●${NC} Update for Klipper-Backup ${Y}Available!${NC}\n"
 
 # Check if .env is v1 version
 if [[ ! -v backupPaths ]]; then
     echo ".env file is not using version 2 config, upgrading to V2"
-    if bash $parent_path/utils/v1convert.sh; then
+    if bash "$parent_path"/utils/v1convert.sh; then
         echo "Upgrade complete restarting script.sh"
         sleep 2.5
-        exec "$parent_path/script.sh" "$args"
+        exec "$parent_path/script.sh" "${args[@]}"
     fi
 fi
 
@@ -245,7 +256,7 @@ if [ "$debug_output" = true ]; then
     # Debug output: Show last command
     begin_debug_line
     if [[ "$SHELL" == */bash* ]]; then
-        echo -e "Command: $0 $args"
+        echo -e "Command: $0" "${args[@]}"
     fi
     end_debug_line
 
@@ -272,13 +283,13 @@ if [ "$debug_output" = true ]; then
     fi
 fi
 
-cd "$backup_path"
+cd "$backup_path" || exit
 
 # Debug output: $HOME
 [ "$debug_output" = true ] && begin_debug_line && echo -e "\$HOME: $HOME" && end_debug_line
 
 # Debug output: $backup_path - (current) path and content
-[ "$debug_output" = true ] && begin_debug_line && echo -e "\$backup_path: $PWD" && echo -e "\nContent of \$backup_path:" && echo -ne "$(ls -la $backup_path)\n" && end_debug_line
+[ "$debug_output" = true ] && begin_debug_line && echo -e "\$backup_path: $PWD" && echo -e "\nContent of \$backup_path:" && echo -ne "$(ls -la "$backup_path")\n" && end_debug_line
 
 # Debug output: $backup_path/.git/config content
 if [ "$debug_output" = true ]; then
@@ -345,14 +356,14 @@ if [[ "$full_git_url" != $(git remote get-url origin) ]]; then
 fi
 
 # Check if branch exists on remote (newly created repos will not yet have a remote) and pull any new changes
-if git ls-remote --exit-code --heads origin $branch_name >/dev/null 2>&1; then
+if git ls-remote --exit-code --heads origin "$branch_name" >/dev/null 2>&1; then
     git pull origin "$branch_name"
     # Delete the pulled files so that the directory is empty again before copying the new backup
-    # The pull is only needed so that the repository nows its on latest and does not require rebases or merges
+    # The pull is only needed so that the repository knows its on latest and does not require rebases or merges
     find "$backup_path" -maxdepth 1 -mindepth 1 ! -name '.git' ! -name 'README.md' -exec rm -rf {} \;
 fi
 
-cd "$HOME" # Ensure paths are processed relative to HOME for rsync -R
+cd "$HOME" || exit # Ensure paths are processed relative to HOME for rsync -R
 echo -e "${Y}● Copying files to backup directory...${NC}"
 
 # Build rsync exclude options from the exclude array
@@ -387,10 +398,10 @@ for path_spec in "${backupPaths[@]}"; do # path_spec is like "printer_data/confi
 done # This 'done' closes the outer loop: for path_spec in "${backupPaths[@]}"
 shopt -u nullglob # Revert nullglob to default behavior if it's not desired globally
 echo -e "${G}✓ File copying complete.${NC}"
-cd "$backup_path" # Return to backup directory for git operations
+cd "$backup_path" || exit # Return to backup directory for git operations
 
 # Debug output: $backup_path content after running rsync
-[ "$debug_output" = true ] && begin_debug_line && echo -e "Content of \$backup_path after rsync:" && echo -ne "$(ls -la $backup_path)\n" && end_debug_line
+[ "$debug_output" = true ] && begin_debug_line && echo -e "Content of \$backup_path after rsync:" && echo -ne "$(ls -la "$backup_path")\n" && end_debug_line
 
 # Create/overwrite .gitignore in the backup directory with patterns from the exclude array.
 # This ensures the .gitignore is specific to the backup content.
@@ -407,7 +418,7 @@ if [ "$commit_message_used" != "true" ]; then
     commit_message="New backup from $(date +"%x - %X")"
 fi
 
-cd "$backup_path"
+cd "$backup_path" || exit
 # Create and add Readme to backup folder if it doesn't already exist
 if ! [ -f "README.md" ]; then
     echo -e "# Klipper-Backup 💾 \nKlipper backup script for manual or automated GitHub backups \n\nThis custom backup is provided by [Klipper-Backup](https://github.com/Bradford1040/klipper-backup)." >"$backup_path/README.md"
@@ -415,8 +426,12 @@ fi
 
 # Show in commit message which files have been changed
 if $use_filenames_as_commit_msg; then
-    commit_message=$(git diff --name-only "$branch_name" | xargs -r -n 1 basename 2>/dev/null | tr '\n' ' ')
+    commit_message="$(git diff --name-only "$branch_name" | xargs -r -n 1 basename 2>/dev/null | tr '\n' ' ')"
+    commit_message="${commit_message//\"/\\\"}" # Escape any double quotes
     [ -z "$commit_message" ] && commit_message="Backup: $(date +"%x - %X")"
+    commit_message="${commit_message//\"/\\\"}" # Escape any double quotes
+    commit_message="${commit_message//\\/\\\\}" # Extra: escape backslashes
+    commit_message="${commit_message//\$/\\\$}" # Extra: escape dollar signs
 fi
 
 # Untrack all files so that any new excluded files are correctly ignored and deleted from remote
@@ -424,7 +439,7 @@ git rm -r --cached . >/dev/null 2>&1
 git add .
 git commit --no-gpg-sign -m "$commit_message"
 # Check if HEAD still matches remote (Means there are no updates to push) and create an empty commit just informing that there are no new updates to push
-if $allow_empty_commits && [[ $(git rev-parse HEAD) == $(git ls-remote $(git rev-parse --abbrev-ref '@{u}' 2>/dev/null | sed 's/\// /g') | cut -f1) ]]; then
+if [ "$allow_empty_commits" = true ] && [[ "$(git rev-parse HEAD)" == "$(git ls-remote "$(git rev-parse --abbrev-ref '@{u}' 2>/dev/null | sed 's/\// /g')" | cut -f1)" ]]; then
     git commit --no-gpg-sign --allow-empty -m "$commit_message - No new changes pushed" # --no-gpg-sign is set as I have verified commits set on GitHub
 fi
 git push -u origin "$branch_name"

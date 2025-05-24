@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 
 # Determine script's own directory to find the correct .env
-parent_path=$(cd "$(dirname "${BASH_SOURCE[0]}")"; cd ..; pwd -P) # Go up one level from utils
+parent_path=$(cd "$(dirname "${BASH_SOURCE[0]}")" || exit; cd .. || exit; pwd -P) # Go up one level from utils
 if [[ -f "$parent_path/.env" ]]; then
 source "$parent_path/.env"
 else
 echo "Error: Could not find .env file at $parent_path/.env" >&2
 exit 1
+fi
+
+# Ensure backupPaths is assigned, even if empty, to avoid unbound variable errors
+if [[ -z "${backupPaths+x}" ]]; then
+    backupPaths=()
 fi
 
 # Check if backupPaths is actually an array after sourcing

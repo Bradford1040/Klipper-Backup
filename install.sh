@@ -31,10 +31,10 @@ parent_path="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 
 # --- Source Utilities ---
 # Check if utils file exists before sourcing
-if [[ -f "$parent_path/utils/utils.func" ]]; then
-    source "$parent_path/utils/utils.func"
+if [[ -f "$parent_path/utils/utils.sh" ]]; then
+    source "$parent_path/utils/utils.sh"
 else
-    echo "Error: Utility functions not found at '$parent_path/utils/utils.func'. Cannot continue." >&2
+    echo "Error: Utility functions not found at '$parent_path/utils/utils.sh'. Cannot continue." >&2
     echo "Try running: git submodule update --init --recursive" >&2
     exit 1
 fi
@@ -84,7 +84,7 @@ main() {
         echo ""
         local KLIPPER_DATA_DIR_INPUT # Use a local variable for reading input
         while true; do
-            # Using read -r -p for better compatibility if utils.func isn't sourced yet or ask_textinput isn't ideal here
+            # Using read -r -p for better compatibility if utils.sh isn't sourced yet or ask_textinput isn't ideal here
             read -r -p "Enter Klipper data directory name: " KLIPPER_DATA_DIR_INPUT < /dev/tty # Read directly from terminal
             if [[ -z "$KLIPPER_DATA_DIR_INPUT" ]]; then
                 echo "${R}Error: Directory name cannot be empty.${NC}"
@@ -142,7 +142,7 @@ main() {
 dependencies() {
     loading_wheel "${Y}●${NC} Checking for installed dependencies" &
     local loading_pid=$!
-    # Ensure check_dependencies is available from utils.func
+    # Ensure check_dependencies is available from utils.sh
     if command -v check_dependencies &> /dev/null; then
         check_dependencies "jq" "curl" "rsync" "git" # Added git
     else
@@ -284,8 +284,11 @@ check_updates() {
                 echo -e "${G}●${NC} Updating Klipper-Backup ${G}Done!${NC}\n\n Restarting installation script to ensure consistency..."
                 sleep 2
                 # Execute the script again, passing the chosen data dir might be needed if state isn't preserved
-                # For simplicity, let's just restart. The user will be prompted again.
-                exec "$parent_path/install.sh"
+                        if [[ "$FIX_MODE" == "true" && -n "$KLIPPER_DATA_DIR" ]]; then
+                            exec "$parent_path/install.sh" --fix "$KLIPPER_DATA_DIR"
+                        else
+                            exec "$parent_path/install.sh"
+                        fi
             else
                 kill $loading_pid &>/dev/null || true
                 tput_cnorm # Restore cursor visibility
@@ -295,7 +298,11 @@ check_updates() {
                 git reset --hard origin/devel-v3.0 > /dev/null 2>&1 # Reset to remote branch state
                 if $stash_needed; then git stash drop > /dev/null 2>&1 || true; fi # Drop stash if reset
                 sleep 2
-                exec "$parent_path/install.sh"
+                        if [[ "$FIX_MODE" == "true" && -n "$KLIPPER_DATA_DIR" ]]; then
+                            exec "$parent_path/install.sh" --fix "$KLIPPER_DATA_DIR"
+                        else
+                            exec "$parent_path/install.sh"
+                        fi
             fi
         else
             echo -e "${M}●${NC} Klipper-Backup update ${M}skipped!${NC}\n"
@@ -598,7 +605,8 @@ install_inotify_from_source() {
     fi
     echo "${G}● Build dependencies checked/installed.${NC}"
     local source_dir="/tmp/inotify-tools-src-$$" # Use /tmp
-    local current_dir=$(pwd)
+    current_dir=$(pwd)
+    local current_dir
     sudo rm -rf "$source_dir" # Clean previous attempts
     echo "${Y}● Cloning inotify-tools repository...${NC}"
     loading_wheel "   ${Y}Cloning...${NC}" & local loading_pid=$!
@@ -619,7 +627,7 @@ install_inotify_from_source() {
             echo -e "${R}✗ Command Failed: ${cmd}${NC}\nOutput:\n$output${NC}"; build_ok=false; break
         fi
     done
-    cd "$current_dir"; echo "${Y}● Cleaning up source directory...${NC}"; sudo rm -rf "$source_dir"
+    cd "$current_dir" || return 1; echo "${Y}● Cleaning up source directory...${NC}"; sudo rm -rf "$source_dir"
     if ! $build_ok; then echo -e "${R}✗ Failed to compile/install inotify-tools from source.${NC}"; return 1; fi
     if command -v inotifywait &> /dev/null; then echo -e "${G}● Successfully compiled and installed inotify-tools.${NC}"; return 0; else
         echo -e "${R}✗ Compilation reported success, but 'inotifywait' command still not found. Installation failed.${NC}"; return 1
@@ -678,8 +686,10 @@ install_filewatch_service() {
         fi
         # Patch service file in /tmp
         # Escape paths for sed
-        local escaped_install_dir=$(sed 's|[&/\]|\\&|g' <<<"$KLIPPER_BACKUP_INSTALL_DIR")
-        local escaped_config_dir=$(sed 's|[&/\]|\\&|g' <<<"$KLIPPER_CONFIG_DIR")
+        local escaped_install_dir # Declare locally before use
+        escaped_install_dir=$(sed 's|[&/\\]|\\&|g' <<<"$KLIPPER_BACKUP_INSTALL_DIR") # Corrected pattern
+        local escaped_config_dir # Declare locally before use
+        escaped_config_dir=$(sed 's|[&/\\]|\\&|g' <<<"$KLIPPER_CONFIG_DIR") # Corrected pattern
         sed -i "s|^WorkingDirectory=.*|WorkingDirectory=$escaped_install_dir|" "$tmp_service_file"
         # Pass KLIPPER_CONFIG_DIR via Environment for filewatch.sh to use
         sed -i "s|Environment=KLIPPER_CONFIG_DIR=.*|Environment=KLIPPER_CONFIG_DIR=$escaped_config_dir|" "$tmp_service_file"
@@ -727,8 +737,7 @@ install_backup_service() {
     fi
     echo "Using on-boot service name: $service_name"
     # --- End of Added Section ---
-
-    local escaped_install_dir=$(sed 's|[&/\]|\\&|g' <<<"$KLIPPER_BACKUP_INSTALL_DIR")
+    # Removed redundant/incorrect sed and local declaration here
     local service_file_path="/etc/systemd/system/${service_name}.service"
     local source_service_file="$parent_path/install-files/${base_service_name}.service" # Template always uses base name
     local tmp_service_file="/tmp/${service_name}.service"
@@ -752,7 +761,8 @@ install_backup_service() {
         fi
 
         # Patch service file in /tmp
-        local escaped_install_dir=$(sed 's/[&/\]/\\&/g' <<<"$KLIPPER_BACKUP_INSTALL_DIR")
+        local escaped_install_dir # Declare locally before use
+        escaped_install_dir=$(sed 's|[&/\\]|\\&|g' <<<"$KLIPPER_BACKUP_INSTALL_DIR") # Consistent escaping for '&', '/', and '\'
         sed -i "s|^WorkingDirectory=.*|WorkingDirectory=$escaped_install_dir|" "$tmp_service_file"
         sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/env bash $escaped_install_dir/script.sh -c \"On-Boot Backup\"|" "$tmp_service_file"
         sed -i "s|^User=.*|User=${SUDO_USER:-$USER}|" "$tmp_service_file"
@@ -846,8 +856,8 @@ install_cron() {
 }
 
 
-# --- Dummy/Placeholder functions (if not fully defined in utils.func) ---
-# Replace these with actual implementations or ensure they exist in utils.func
+# --- Dummy/Placeholder functions (if not fully defined in utils.sh) ---
+# Replace these with actual implementations or ensure they exist in utils.sh
 # service_exists() { systemctl list-units --full -all | grep -q "$1.service"; } # Basic service check
 # ask_yn() { local prompt="$1"; local response; while true; do read -p "$prompt (y/N)? " -n 1 -r response < /dev/tty; echo; case "$response" in [yY]) return 0;; [nN]|"") return 1;; *) echo "Please answer yes or no.";; esac; done; }
 # loading_wheel() { local chars="/-\|"; local delay=0.1; local message="$@"; tput_civis; while true; do for i in {0..3}; do echo -ne "\r${chars:$i:1} $message"; sleep $delay; done; done & } # Basic wheel
