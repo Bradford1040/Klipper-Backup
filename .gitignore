@@ -1,7 +1,16 @@
-.env
+# Local Project Files
+*.env
 secrets.conf
-.vscode
 .moonraker.conf.bak
+*.local.config
+*.iws
+Untitled.*
+
+# Package Managers
+/node_modules/
+/site-packages/
+/venv/
+.venv
 
 # OS-specific files
 .DS_Store
@@ -10,8 +19,18 @@ Thumbs.db
 # IDE-specific files
 .idea/
 *.iml
-.venv
 .shellcheckrc
+.vscode/
+.project
+.settings
+.iws
+*.ipr
+*.tmproot
+*.tmps
+*.tmp
+*.user
+*.workspace
+*.tasks
 
 # Build artifacts
 dist/
@@ -21,8 +40,8 @@ build/
 *.bak
 *.old
 *.test
-
-
+*.pyc
+*.log
 
 # Git-specific files
 *.orig
