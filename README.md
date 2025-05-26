@@ -104,7 +104,7 @@ timeout: 90.0
 verbose: True
 ```
 
-* ! Also you will need to create a Macro:
+* ! Also, you will need to create a Macro:
 
 ```shell
 [gcode_macro BACKUP_GITHUB]

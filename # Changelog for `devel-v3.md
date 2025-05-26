@@ -9,7 +9,7 @@
 * Shell Command Configuration: Added functionality to create or append to shell_command.cfg during installation.
 * Inotify & Lock Service: Added installation of inotify-tools (from source) and a lock service to prevent conflicts between manual and scheduled backups.
 * Documentation: Added information about the custom installation file to the README.
-* Changelog: Added an changelog file (tracking changes since main).
+* Changelog: Added a changelog file (tracking changes since main).
 
 ### Changed
 
