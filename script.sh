@@ -16,6 +16,7 @@ fi
 # Initialize variables from .env file
 # shellcheck disable=SC1091
 source "$parent_path"/.env
+# shellcheck disable=SC1091
 source "$parent_path"/utils/utils.sh
 
 # Ensure github_username and github_repository are set from .env

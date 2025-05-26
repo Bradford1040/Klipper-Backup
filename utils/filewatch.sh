@@ -3,6 +3,7 @@
 # Determine script's own directory to find the correct .env
 parent_path=$(cd "$(dirname "${BASH_SOURCE[0]}")" || exit; cd .. || exit; pwd -P) # Go up one level from utils
 if [[ -f "$parent_path/.env" ]]; then
+# shellcheck disable=SC1091
 source "$parent_path/.env"
 else
 echo "Error: Could not find .env file at $parent_path/.env" >&2

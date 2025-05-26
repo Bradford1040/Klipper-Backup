@@ -10,7 +10,7 @@ scriptsh_parent_path=$(
 
 envpath="$scriptsh_parent_path/.env"
 
-# shellcheck source=../.env.example
+# shellcheck source=/dev/null
 source "$envpath"
 cp "$envpath" "$envpath.bkp"
 

@@ -32,6 +32,7 @@ parent_path="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 # --- Source Utilities ---
 # Check if utils file exists before sourcing
 if [[ -f "$parent_path/utils/utils.sh" ]]; then
+    # shellcheck disable=SC1091
     source "$parent_path/utils/utils.sh"
 else
     echo "Error: Utility functions not found at '$parent_path/utils/utils.sh'. Cannot continue." >&2
@@ -602,8 +603,10 @@ install_filewatch_service() {
         # Patch service file in /tmp
         # Escape paths for sed
         local escaped_install_dir # Declare locally before use
+        # shellcheck disable=SC2001
         escaped_install_dir=$(sed 's|[&/\\]|\\&|g' <<<"$KLIPPER_BACKUP_INSTALL_DIR") # Corrected pattern
         local escaped_config_dir # Declare locally before use
+        # shellcheck disable=SC2001
         escaped_config_dir=$(sed 's|[&/\\]|\\&|g' <<<"$KLIPPER_CONFIG_DIR") # Corrected pattern
         sed -i "s|^WorkingDirectory=.*|WorkingDirectory=$escaped_install_dir|" "$tmp_service_file"
         # Pass KLIPPER_CONFIG_DIR via Environment for filewatch.sh to use
@@ -676,6 +679,7 @@ install_backup_service() {
 
         # Patch service file in /tmp
         local escaped_install_dir # Declare locally before use
+        # shellcheck disable=SC2001
         escaped_install_dir=$(sed 's|[&/\\]|\\&|g' <<<"$KLIPPER_BACKUP_INSTALL_DIR") # Consistent escaping for '&', '/', and '\'
         sed -i "s|^WorkingDirectory=.*|WorkingDirectory=$escaped_install_dir|" "$tmp_service_file"
         sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/env bash $escaped_install_dir/script.sh -c \"On-Boot Backup\"|" "$tmp_service_file"
