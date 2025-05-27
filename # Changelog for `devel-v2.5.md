@@ -1,6 +1,6 @@
-# Changelog: main vs devel-v3.0
+# Changelog: main vs devel-v2.5
 
-* This summarizes the significant changes introduced between the `main` branch and the `devel-v3.0` branch.
+* This summarizes the significant changes introduced between the `main` branch and the `devel-v2.5` branch.
 
 ## Added
 
@@ -13,7 +13,7 @@
 
 ### Changed
 
-* Branch Targeting: Updated the installation script and internal references to target/use devel-v3.0 instead of KIAUH_V1/KIAUH_V2.
+* Branch Targeting: Updated the installation script and internal references to target/use devel-v2.5 instead of KIAUH_V1/KIAUH_V2.
 * Cron Job Installation: Modified the cron job setup to run on every script execution to ensure it's correctly scheduled.
 * Rsync Options: Changed rsync -Rr to rsync -aR for potentially more robust backup behavior.
 * Script/Folder Structure: Refactored folder locations for file and boot scripts (associated with KIAUH_V1 changes).
@@ -34,7 +34,7 @@
   * Added missing network dependency checks (After=network-online.target Wants=network-online.target).
   * Corrected service file naming conventions (e.g., filewatch, backup-on-boot, moonraker-custom_name.service).
   * Added missing WorkingDirectory directives.
-  * Added missing [update_manager client devel-v3.0] entry reference for Moonraker configuration.
+  * Added missing [update_manager client devel-v2.5] entry reference for Moonraker configuration.
 * Script Syntax/Logic:
   * Fixed misplaced if/else/fi statements.
   * Fixed incorrectly placed #!/bin/bash shebang.

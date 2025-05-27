@@ -70,10 +70,10 @@ Other necessary tools like `rsync` and `inotify-tools` are typically handled by 
 cd ~
 ```
 
-* Clone the repository, this is a the `devel-v3.0` branch, (download it using `git clone`):
+* Clone the repository, this is a the `devel-v2.5` branch, (download it using `git clone`):
 
 ```shell
-git clone -b devel-v3.0 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/klipper-backup
+git clone -b devel-v2.5 --single-branch https://github.com/Bradford1040/klipper-backup.git ~/klipper-backup
 ```
 
 * Go into the newly downloaded directory:

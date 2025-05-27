@@ -264,7 +264,7 @@ removeOldInotify() {
 show_help(){
     echo "Usage: $(basename $0) [OPTION]..."
     echo "Klipper-Backup is a script for manual or automated Klipper GitHub backups. It's Lightweight, pragmatic and comfortable."
-    echo "https://github.com/Bradford1040/klipper-backup/tree/devel-v3.0"
+    echo "https://github.com/Bradford1040/klipper-backup/tree/devel-v2.5"
     echo "https://klipperbackup.xyz"
     echo
     echo "Options:"
