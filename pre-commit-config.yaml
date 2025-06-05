@@ -9,4 +9,4 @@ repos:
     rev: v0.10.0
     hooks:
       - id: shellcheck
-        args: ["./check.sh"]
+        args: ["./install.sh", "script.sh", "utils/utils.sh", "utils/filewatch.sh", "utils/v1convert.sh"]
