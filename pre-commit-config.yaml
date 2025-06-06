@@ -5,8 +5,9 @@ repos:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
+      - id: detect-private-key
   - repo: https://github.com/koalaman/shellcheck-precommit
     rev: v0.10.0
     hooks:
       - id: shellcheck
-        args: ["./install.sh", "script.sh", "utils/utils.sh", "utils/filewatch.sh", "utils/v1convert.sh"]
+        args: ["./install.sh", "./script.sh", "./utils/utils.sh", "./utils/filewatch.sh", "./utils/v1convert.sh"]
