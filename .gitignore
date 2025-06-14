@@ -5,6 +5,8 @@ secrets.conf
 *.local.config
 *.iws
 Untitled.*
+.mypy_cache/
+.pytest_cache/
 
 # Package Managers
 /node_modules/
