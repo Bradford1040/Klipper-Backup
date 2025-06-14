@@ -1,20 +1,18 @@
 root = true
 
+# All files eol = lf
 [*]
-indent_style = space
+indent_style = tab
 indent_size = 2
 insert_final_newline = true
 trim_trailing_whitespace = true
 charset = utf-8
 end_of_line = lf
 
+# Python files
 [*.py]
-indent_style = space
 indent_size = 4
 max_line_length = 120
-
-[*.{sh,yml,yaml,json}]
-indent_size = 2
 
 # Makefiles always use tabs for indentation
 [Makefile]
@@ -24,5 +22,29 @@ indent_style = tab
 [*.bat]
 indent_style = tab
 
+# Markdown files
 [*.md]
 trim_trailing_whitespace = false
+
+# YAML files and JSON files and shell scripts
+[*.{sh,yml,yaml,json}]
+indent_size = 2
+indent_style=space
+
+# XML files
+[*.xml]
+end_of_line=crlf
+indent_style=space
+indent_size=4
+
+# JavaScript files and JSON files and Markdown files
+[{*.js,*.json,*.md}]
+end_of_line=lf
+
+# Shell scripts
+[{*.sh,*.bash}]
+end_of_line=lf
+
+# Windows batch files and PowerShell scripts
+[{*.bat,*.cmd,*.ps1}]
+end_of_line=crlf

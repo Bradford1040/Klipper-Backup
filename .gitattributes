@@ -1,5 +1,5 @@
 # Auto detect text files and perform LF normalization
-*          text=auto
+*          text=auto eol=lf
 
 # The above will handle all files NOT found below
 #
@@ -38,10 +38,10 @@
 *.tiff     binary
 *.ico      binary
 # SVG treated as text by default.
-*.svg      text
+#*.svg      text
 # If you want to treat it as binary,
 # use the following line instead.
-# *.svg    binary
+*.svg      binary
 *.eps      binary
 
 # Scripts
@@ -58,7 +58,7 @@
 # Serialisation
 *.json     text
 *.toml     text
-*.xml      text
+*.xml      text eol=crlf
 *.yaml     text
 *.yml      text
 
@@ -90,6 +90,6 @@
 # Exclude files from exporting
 #
 
-.gitattributes export-ignore
-.gitignore     export-ignore
+.gitattributes text eol=crlf
+.gitignore     text eol=crlf
 .gitkeep       export-ignore
