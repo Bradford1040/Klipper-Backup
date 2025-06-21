@@ -5,6 +5,8 @@
 * you can't fix the issue, or your Raspberry Pi fails or SD card craps out?
 * Or if you accidentally delete a crucial line in your config file? You could lose all that hard work!
 
+![Alt](https://repobeats.axiom.co/api/embed/1a51e6e0c55e23ebced11e0a041dae0ec165d0df.svg "Repobeats analytics image")
+
 ## What is KLIPPER-BACKUP?
 
 * KLIPPER-BACKUP is a tool designed to solve exactly that problem. Think of it as a safety net
