@@ -19,7 +19,7 @@ Thumbs.db
 # IDE-specific files
 .idea/
 *.iml
-.shellcheckrc
+# .shellcheckrc
 .vscode/
 .project
 .settings
@@ -31,6 +31,7 @@ Thumbs.db
 *.user
 *.workspace
 *.tasks
+*.mypy_cache
 
 # Build artifacts
 dist/
