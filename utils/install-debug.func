@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+
+install_debug_mask_line() {
+    local line="$1"
+    local key="${line%%=*}"
+    case "$key" in
+    github_token | *token* | *secret* | *password*)
+        echo "${key}=********"
+        ;;
+    *)
+        echo "$line"
+        ;;
+    esac
+}
+
+install_debug_bool() {
+    if is_true "$1"; then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+debug_install_context() {
+    debug_line 1 "Install Invocation"
+    local quoted_args=()
+    local arg
+
+    if declare -p original_args >/dev/null 2>&1; then
+        for arg in "${original_args[@]}"; do
+            quoted_args+=("$(printf "%q" "$arg")")
+        done
+    fi
+
+    echo "Command: $(printf "%q" "$0") ${quoted_args[*]}"
+    echo "Install mode: $install_mode"
+    echo "Config path: $config_path"
+
+    debug_line 3 "Config Preview"
+    if [[ -f "$config_path" ]]; then
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            if [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]]; then
+                echo "$line"
+            else
+                install_debug_mask_line "$line"
+            fi
+        done <"$config_path"
+    else
+        echo "Config file not found."
+    fi
+    debug_line 2
+}
+
+debug_ensure_current_config_version() {
+    debug_line 1 "Config Version"
+    if declare -p backupPaths >/dev/null 2>&1; then
+        echo "backupPaths defined: yes"
+        echo "backup paths count: ${#backupPaths[@]}"
+    else
+        echo "backupPaths defined: no"
+    fi
+    debug_line 2
+}
+
+debug_check_updates() {
+    debug_line 1 "Installer Update Check"
+    local repo_dir="$HOME/klipper-backup"
+    echo "Repository path: $repo_dir"
+    if [[ -d "$repo_dir/.git" ]]; then
+        echo "branch: $(git -C "$repo_dir" branch --show-current 2>/dev/null || echo unknown)"
+        echo "head: $(git -C "$repo_dir" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+        echo "origin: $(git -C "$repo_dir" remote get-url origin 2>/dev/null | sed -E 's#(https?://)[^/@]+@#\1***@#')"
+    else
+        echo "Repository not present."
+    fi
+    debug_line 2
+}
+
+debug_commonDeps() {
+    debug_line 1 "Dependency Check"
+    local dep
+    for dep in git jq curl rsync; do
+        if command -v "$dep" >/dev/null 2>&1; then
+            echo "$dep: installed"
+        else
+            echo "$dep: missing"
+        fi
+    done
+    debug_line 2
+}
+
+debug_install_update() {
+    debug_line 1 "Repository State"
+    echo "repo exists: $( [[ -d "$HOME/klipper-backup/.git" ]] && echo yes || echo no )"
+    if [[ -d "$HOME/klipper-backup/.git" ]]; then
+        echo "branch: $(git -C "$HOME/klipper-backup" branch --show-current 2>/dev/null || echo unknown)"
+        echo "head: $(git -C "$HOME/klipper-backup" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+        echo "origin: $(git -C "$HOME/klipper-backup" remote get-url origin 2>/dev/null | sed -E 's#(https?://)[^/@]+@#\1***@#')"
+    fi
+    debug_line 2
+}
+
+debug_configure() {
+    debug_line 1 "Configured Runtime Values"
+    echo "runtime_config_path: $runtime_config_path"
+    echo "git_protocol: ${git_protocol:-https}"
+    echo "branch_name: ${branch_name:-<empty>}"
+    echo "github_username: ${github_username:-<empty>}"
+    echo "github_repository: ${github_repository:-<empty>}"
+    if [[ -n "${github_token:-}" ]]; then
+        echo "github_token: set"
+    else
+        echo "github_token: empty"
+    fi
+    echo "commit_username: ${commit_username:-<empty>}"
+    echo "commit_email: ${commit_email:-<empty>}"
+    debug_line 2
+}
+
+debug_set_optional_actions() {
+    debug_line 1 "Optional Actions"
+    echo "installer_add_update_manager: $(install_debug_bool "$installer_add_update_manager")"
+    echo "installer_install_filewatch_service: $(install_debug_bool "$installer_install_filewatch_service")"
+    echo "installer_install_on_boot_service: $(install_debug_bool "$installer_install_on_boot_service")"
+    echo "installer_install_cron: $(install_debug_bool "$installer_install_cron")"
+    echo "installer_cron_schedule: $installer_cron_schedule"
+    echo "moonrakerManager: ${moonrakerManager:-<unset>}"
+    echo "installFilewatch: ${installFilewatch:-<unset>}"
+    echo "installService: ${installService:-<unset>}"
+    echo "installCron: ${installCron:-<unset>}"
+    debug_line 2
+}
+
+debug_patch_klipper_backup_update_manager() {
+    debug_line 1 "Moonraker Update Manager"
+    local moonraker_conf="$HOME/printer_data/config/moonraker.conf"
+    if [[ -f "$moonraker_conf" ]]; then
+        if grep -Eq "^\[update_manager klipper-backup\]$" "$moonraker_conf"; then
+            echo "moonraker.conf entry: present"
+            awk '/^\[update_manager klipper-backup\]$/,/^\[/{if(!/^\[$/){print}}' "$moonraker_conf" | head -n 20
+        else
+            echo "moonraker.conf entry: not present"
+        fi
+    else
+        echo "moonraker.conf not found"
+    fi
+    debug_line 2
+}
+
+debug_install_filewatch_service() {
+    debug_line 1 "Filewatch Service"
+    local service_file="/etc/systemd/system/klipper-backup-filewatch.service"
+    echo "enabled in config: $(install_debug_bool "$installer_install_filewatch_service")"
+    echo "runtime config path: $runtime_config_path"
+    if [[ -f "$service_file" ]]; then
+        echo "service file: $service_file"
+        grep -E '^(User|Environment|ExecStart|After|Wants)=' "$service_file" || true
+        if command -v systemctl >/dev/null 2>&1; then
+            echo "active: $(systemctl is-active klipper-backup-filewatch.service 2>/dev/null || echo unknown)"
+            echo "enabled: $(systemctl is-enabled klipper-backup-filewatch.service 2>/dev/null || echo unknown)"
+        fi
+    else
+        echo "service file not present"
+    fi
+    debug_line 2
+}
+
+debug_install_backup_service() {
+    debug_line 1 "On-Boot Service"
+    local service_file="/etc/systemd/system/klipper-backup-on-boot.service"
+    echo "enabled in config: $(install_debug_bool "$installer_install_on_boot_service")"
+    echo "runtime config path: $runtime_config_path"
+    if [[ -f "$service_file" ]]; then
+        echo "service file: $service_file"
+        grep -E '^(User|Environment|ExecStart|After|Wants)=' "$service_file" || true
+        if command -v systemctl >/dev/null 2>&1; then
+            echo "active: $(systemctl is-active klipper-backup-on-boot.service 2>/dev/null || echo unknown)"
+            echo "enabled: $(systemctl is-enabled klipper-backup-on-boot.service 2>/dev/null || echo unknown)"
+        fi
+    else
+        echo "service file not present"
+    fi
+    debug_line 2
+}
+
+debug_install_cron() {
+    debug_line 1 "Cron"
+    echo "enabled in config: $(install_debug_bool "$installer_install_cron")"
+    if command -v crontab >/dev/null 2>&1; then
+        local matching
+        matching=$(crontab -l 2>/dev/null | grep -F "$HOME/klipper-backup/script.sh" || true)
+        if [[ -n "$matching" ]]; then
+            echo "matching cron entries:"
+            echo "$matching"
+        else
+            echo "matching cron entries: none"
+        fi
+    else
+        echo "crontab command unavailable"
+    fi
+    debug_line 2
+}
+
+install_debug_wrap_function() {
+    local fn="$1"
+    local suffix="${fn//-/_}"
+    local debug_fn="debug_${suffix}"
+    local original_fn="__install_debug_original_${suffix}"
+
+    if ! declare -f "$fn" >/dev/null 2>&1; then
+        return
+    fi
+    if ! declare -f "$debug_fn" >/dev/null 2>&1; then
+        return
+    fi
+
+    eval "$(declare -f "$fn" | sed "1s/^${fn}[[:space:]]*()/${original_fn}()/")"
+    eval "${fn}() {
+        ${original_fn} \"\$@\"
+        ${debug_fn} \"\$@\" || true
+    }"
+}
+
+install_debug_functions_to_hook=(
+    ensure_current_config_version
+    check_updates
+    commonDeps
+    install_update
+    configure
+    set_optional_actions
+    patch_klipper-backup_update_manager
+    install_filewatch_service
+    install_backup_service
+    install_cron
+)
+
+for fn in "${install_debug_functions_to_hook[@]}"; do
+    install_debug_wrap_function "$fn"
+done

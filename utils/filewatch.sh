@@ -1,6 +1,47 @@
 #!/usr/bin/env bash
 
-source "$HOME/klipper-backup/.env"
+resolve_path() {
+    local path="$1"
+    if [[ "$path" == "~"* ]]; then
+        path="${path/#\~/$HOME}"
+    fi
+    if [[ "$path" != /* ]]; then
+        path="$(pwd)/$path"
+    fi
+    printf '%s\n' "$path"
+}
+
+config_path="${KLIPPER_BACKUP_CONFIG:-$HOME/klipper-backup/.env}"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --config | -config | -C)
+        if [[ -z "$2" || "$2" =~ ^- ]]; then
+            echo "Error: config path expected after $1" >&2
+            exit 1
+        fi
+        config_path="$2"
+        shift 2
+        ;;
+    --config=* | -config=* | -C=*)
+        config_path="${1#*=}"
+        shift
+        ;;
+    *)
+        echo "Error: unknown option: $1" >&2
+        exit 1
+        ;;
+    esac
+done
+
+config_path="$(resolve_path "$config_path")"
+
+if [[ ! -f "$config_path" ]]; then
+    echo "Error: config file not found: $config_path" >&2
+    exit 1
+fi
+
+source "$config_path"
 watchlist=""
 for path in "${backupPaths[@]}"; do
     for file in $path; do
@@ -34,5 +75,5 @@ inotifywait -mrP -e close_write -e move -e delete --exclude "$exclude_pattern" $
             file=$(basename "$path")
         fi
         echo "Event Type: $event, Watched Path: $path, File Name: $file"
-        file="$file" /usr/bin/env bash -c "/usr/bin/env bash  $HOME/klipper-backup/script.sh -c \"\$file modified - \$(date +'%x - %X')\"" >/dev/null 2>&1
+        /usr/bin/env bash "$HOME/klipper-backup/script.sh" --config "$config_path" -c "$file modified - $(date +'%x - %X')" >/dev/null 2>&1
     done

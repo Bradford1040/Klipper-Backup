@@ -16,6 +16,33 @@ curl -fsSL get.klipperbackup.xyz | bash
 ~/klipper-backup/install.sh
 ```
 
+### Config-Driven / Automated Usage
+Create a config file (for example from `.env.example`), set all values once, then pass it to scripts:
+
+```shell
+~/klipper-backup/install.sh --config /path/to/backup.env
+~/klipper-backup/script.sh --config /path/to/backup.env
+~/klipper-backup/install.sh --restore --config /path/to/backup.env
+```
+
+Restore commit selection behavior:
+- set `restore_commit_hash` (or pass `--commit`) for fully non-interactive restore pinning.
+- leave `restore_commit_hash` empty to get an interactive commit picker in a terminal.
+- in non-interactive environments, empty `restore_commit_hash` falls back to the latest valid restore commit.
+
+`-config` is also accepted as an alias for `--config`.
+
+The installer is fully config-driven; configure the `installer_*` options in the config file.
+
+### Legacy Config Conversion
+If you have an old/legacy config format, convert it in-place with:
+
+```shell
+~/klipper-backup/install.sh --convert-legacy --config /path/to/legacy.env
+```
+
+A timestamped backup of the legacy file is created automatically.
+
 ## RTFM
 I would suggest reading the [docs](https://klipperbackup.xyz), as this provides detailed step-by-step instructions and further tips such as an [FAQ](https://klipperbackup.xyz/faq/).
 

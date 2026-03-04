@@ -72,16 +72,6 @@ function move_cursor() {
     echo -e "\033[${1};${2}H"
 }
 
-checkExit() {
-    if [ $1 -ne 0 ]; then
-        result=$(whiptail --title "$title" --menu "Select an option:" 15 75 3 \
-            "Redo" "| Retry current prompt" \
-            "Back" "| Go back to previous prompt" \
-            "Quit" "| Quit the script" 3>&1 1>&2 2>&3)
-        echo $result
-    fi
-}
-
 getUsername() {
     GITHUB_TOKEN="$1"
     API_URL="https://api.github.com/user"
@@ -210,12 +200,14 @@ show_help() {
     echo
     echo "Options:"
     echo "  -h, --help                     display this help and exit"
+    echo "  -C, --config, -config [PATH]   use a custom config file instead of $HOME/klipper-backup/.env"
     echo "  -c, --commit_message [TEXT]    use your own commit message for the git push"
     echo "  -f, --fix                      delete the config_backup folder. This can help to solve the vast majority of error messages"
     echo "  -d, --debug                    debugging output"
     echo
     echo "Examples:"
     echo "  $(basename $0) --help"
+    echo "  $(basename $0) --config /path/to/backup.env"
     echo "  $(basename $0) --commit_message \"My own commit message\""
     echo "  $(basename $0) --fix"
     echo "  $(basename $0) --debug"
@@ -241,4 +233,19 @@ begin_debug_line() {
 
 end_debug_line() {
     echo -e "------------------------------\n"
+}
+
+debug_line() {
+    case "$1" in
+    1)
+        echo -e "------------$2 DEBUG:------------"
+        ;;
+    2)
+        echo -e "------------------------------\n"
+        ;;
+    3)
+        echo -e "------------------------------\n"
+        echo -e "------------$2 DEBUG:------------"
+        ;;
+    esac
 }

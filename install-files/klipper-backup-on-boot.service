@@ -6,7 +6,8 @@ Wants=
 [Service]
 User=
 Type=oneshot
-ExecStart=/usr/bin/env bash -c "/usr/bin/env bash $HOME/klipper-backup/script.sh -c \"New Backup on boot - $(date +\"%%x - %%X\")\""
+Environment=KLIPPER_BACKUP_CONFIG=
+ExecStart=/usr/bin/env bash -c '/usr/bin/env bash "$HOME/klipper-backup/script.sh" --config "$KLIPPER_BACKUP_CONFIG" -c "New Backup on boot - $(date +"%%x - %%X")"'
 
 [Install]
 WantedBy=default.target
