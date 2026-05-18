@@ -223,7 +223,15 @@ for path in "${backupPaths[@]}"; do
         for file in $path; do
             # Skip if file is symbolic link
             if [ -h "$file" ]; then
-                echo "Skipping symbolic link: $file"
+                symlink_excluded=false
+                for pattern in "${exclude[@]}"; do
+                    case "${file##*/}" in
+                        $pattern) symlink_excluded=true; break ;;
+                    esac
+                done
+                if [ "$symlink_excluded" = false ]; then
+                    echo "Skipping symbolic link: $file"
+                fi
             else
                 file=$(readlink -e "$file") # Get absolute path before copy (Allows usage of .. in filepath eg. ../../etc/fstab resovles to /etc/fstab )
                 rsync -Rr  --filter "- /.git/" --filter "- /.github/" "${file##"$HOME"/}" "$backup_path"
