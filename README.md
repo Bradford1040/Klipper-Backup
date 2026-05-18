@@ -27,3 +27,5 @@ There are several YouTube videos about Klipper-Backup - thanks to everyone!
 * [ModBot: This Klipper Add-on Could Save You! (Klipper-Backup)](https://www.youtube.com/watch?v=47qV9BE2n_Y)
 
 * [Minimal 3DP: The Ultimate Guide to Using Klipper Macros to Backup Your Configuration Files](https://www.youtube.com/watch?v=J4_dlCtZY48)
+
+* [Werkplaats Marc: KLIPPER BACKUPS & UPDATES | GitHub Automatisering | Nooit Meer Data Verlies! 🔒](https://www.youtube.com/watch?v=s4ICSJQda-I)
