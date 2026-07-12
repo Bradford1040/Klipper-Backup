@@ -177,7 +177,7 @@ install_repo() {
             loading_wheel "   Cloning repository..." &
             local loading_pid=$!
             # Clone directly into the target directory name 'klipper-backup' inside the current dir
-            if git clone -b devel-v2.5 --single-branch https://github.com/Bradford1040/klipper-backup.git klipper-backup > /dev/null 2>&1; then
+            if git clone -b devel-v2.5 --single-branch https://github.com/Bradford1040/Klipper-Backup.git klipper-backup > /dev/null 2>&1; then
                 kill $loading_pid &>/dev/null || true
                 tput_cnorm # Restore cursor visibility
                 wait $loading_pid &>/dev/null || true

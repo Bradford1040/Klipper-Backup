@@ -190,8 +190,8 @@ if ! declare -p exclude &>/dev/null || [ ${#exclude[@]} -eq 0 ]; then
 fi
 
 # Required for checking the use of the commit_message and debug parameter
-commit_message_used=false
-debug_output=false
+commit_message_used=${commit_message_used:-false}
+debug_output=${debug_output:-false}
 # Collect args before they are consumed by getopts
 args="$@"
 
@@ -251,13 +251,17 @@ if [ "$debug_output" = true ]; then
 
     # Debug output: .env file with hidden token
     begin_debug_line
+        shopt -s nocaseglob
     while IFS= read -r line; do
-    if [[ $line == github_token=* ]]; then
-        echo "github_token=****************"
-    else
-        echo "$line"
-    fi
+        if [[ $line == github_token=* ]]; then
+            echo "github_token=**********"
+        elif [[ $line == commit_email=* ]]; then
+            echo "commit_email==**********"
+        else
+            echo "$line"
+        fi
     done < "$parent_path/.env" # Use relative path
+        shopt -u nocasematch
     end_debug_line
 
     # Debug output: Check git repo
@@ -349,7 +353,8 @@ if git ls-remote --exit-code --heads origin $branch_name >/dev/null 2>&1; then
     git pull origin "$branch_name"
     # Delete the pulled files so that the directory is empty again before copying the new backup
     # The pull is only needed so that the repository nows its on latest and does not require rebases or merges
-    find "$backup_path" -maxdepth 1 -mindepth 1 ! -name '.git' ! -name 'README.md' -exec rm -rf {} \;
+    # find "$backup_path" -maxdepth 1 -mindepth 1 ! -name '.git' ! -name 'README.md' -exec rm -rf {} \;
+    find "$backup_path" -maxdepth 1 -mindepth 1 ! -name '.git' ! -name 'README.md' ! -name '.gitmodules' -exec rm -rf {} \;
 fi
 
 cd "$HOME" # Ensure paths are processed relative to HOME for rsync -R
@@ -382,7 +387,7 @@ for path_spec in "${backupPaths[@]}"; do # path_spec is like "printer_data/confi
         fi
         # $item is now a path relative to $HOME (e.g., printer_data/config/printer.cfg)
         # rsync -aR "$item" "$backup_path/" will create $backup_path/printer_data/config/printer.cfg
-        rsync -aR "${rsync_exclude_opts[@]}" "$item" "$backup_path/"
+        rsync -aR --filter "- /.git/" --filter "- /.github/" "${rsync_exclude_opts[@]}" "$item" "$backup_path/"
     done # This 'done' closes the inner loop: for item in $path_spec
 done # This 'done' closes the outer loop: for path_spec in "${backupPaths[@]}"
 shopt -u nullglob # Revert nullglob to default behavior if it's not desired globally
@@ -410,7 +415,7 @@ fi
 cd "$backup_path"
 # Create and add Readme to backup folder if it doesn't already exist
 if ! [ -f "README.md" ]; then
-    echo -e "# Klipper-Backup 💾 \nKlipper backup script for manual or automated GitHub backups \n\nThis custom backup is provided by [Klipper-Backup](https://github.com/Bradford1040/klipper-backup)." >"$backup_path/README.md"
+    echo -e "# Klipper-Backup 💾 \nKlipper backup script for manual or automated GitHub backups \n\nThis custom backup is provided by [Klipper-Backup](https://github.com/Bradford1040/Klipper-Backup)." >"$backup_path/README.md"
 fi
 
 # Show in commit message which files have been changed
@@ -422,6 +427,17 @@ fi
 # Untrack all files so that any new excluded files are correctly ignored and deleted from remote
 git rm -r --cached . >/dev/null 2>&1
 git add .
+
+if [[ -n "$ai_describe_commit_command" ]]; then
+    described_commit=$(${ai_describe_commit_command})
+    ret=$?
+    if [[ $ret -ne 0 ]]; then
+        printf "\r\033[K${R}Error: describe-commit command failed with exit code %d. Falling back to default commit message.${NC}\n" $ret
+    elif [[ -n "$described_commit" ]]; then
+        commit_message="$described_commit"
+    fi
+fi
+
 git commit --no-gpg-sign -m "$commit_message"
 # Check if HEAD still matches remote (Means there are no updates to push) and create an empty commit just informing that there are no new updates to push
 if $allow_empty_commits && [[ $(git rev-parse HEAD) == $(git ls-remote $(git rev-parse --abbrev-ref '@{u}' 2>/dev/null | sed 's/\// /g') | cut -f1) ]]; then
