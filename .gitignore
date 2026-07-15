@@ -1,2 +1,6 @@
 .env
 secrets.conf
+.idea/
+*.old
+*.bak
+.venv/
