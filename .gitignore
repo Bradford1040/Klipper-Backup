@@ -1,2 +1,4 @@
 .env
 secrets.conf
+.idea/
+.venv/
