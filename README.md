@@ -88,7 +88,6 @@ cd ~/klipper-backup
 ./install.sh
 ```
 
-
 Inside this file tells the backup script what to back up and where to find it. You'll be asked during installation this is automatically generated and set
 to the correct path to your `.env` configuration  (e.g., /home/<user_name>/klipper-backup or /home/<user_name>/printer_data/klipper-backup/ or
 /home/<user_name>/<custom_name>_data/klipper-backup/). The klipper-backup install directory, where the files that are to be backed up are located
@@ -126,10 +125,9 @@ sudo systemctl restart klipper-<custom_name>.service
 sudo systemctl restart moonraker-<custom_name>.service
 ```
 
-
 ## Restoring Files (Conceptual) this is in the works in (restore_dev & restore_beta branches)
 
-The beta test for the restore function is now open, more information can be found [here](https://github.com/Staubgeborener/Klipper-Backup/discussions/143). This link is for Staubgeborener's build, which looks to be very promising!
+The beta test for the restore function is now open, more information can be found [Beta Build here](https://github.com/Bradford1040/Klipper-Backup/tree/restore-beta). This link is for Staubgeborener's build, which looks to be very promising!
 
  Restoring isn't always a single command; it often involves using git commands manually or via a dedicated restore script (if provided).
 
@@ -148,7 +146,6 @@ Be careful, this overwrites the version of the file currently in your backup dir
 
 Manually copy the restored file(s) from the KLIPPER-BACKUP directory back to their original
 Klipper location (e.g., copy klipper_config/printer.cfg back to /home/<user_name>/klipper_config/printer.cfg).
-
 
 README.md: Documentation explaining how to use this specific version of KLIPPER-BACKUP, including any specific setup steps or features. Always read this!
 .gitignore: A special git file that lists files or patterns git should ignore (like temporary files, logs within the backup dir itself, or maybe the .bak files).
