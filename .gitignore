@@ -10,7 +10,8 @@ Untitled.*
 /node_modules/
 /site-packages/
 /venv/
-.venv
+.venv/
+.idea/
 
 # OS-specific files
 .DS_Store
